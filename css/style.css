@@ -1,0 +1,248 @@
+/* Margin Logo Sidebar */
+body:not(.sidebar-toggled) .brand-icon {
+    margin-left: 10px;
+}
+body.sidebar-toggled .brand-icon {
+    margin-left: 0;
+}
+ 
+/* Crop Gambar Lingkaran Tabel */
+.img-circle-crop {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto;
+}
+.img-circle-crop img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Tabel */
+.table th, .table td {
+    font-size: 0.9rem;
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+/* Tombol Aksi */
+.aksi-btn {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+}
+.aksi-btn a, .aksi-btn button {
+    font-size: 14px;
+}
+
+/* Tabel Modal Detail Data Siswa */
+#detailModal table th,
+#detailModal table td {
+    text-align: left !important;
+}
+
+/* Tabel Profil */
+.profil-table th,
+.profil-table td {
+    text-align: left !important;
+}
+
+/* Container Stream Scan Presensi */
+.stream-container {
+    width: 640px;
+    height: 480px;
+    margin: 0 auto;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px;
+}
+.stream-container img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+}
+
+/* Efek Hover Zoom Gambar Tabel */
+table:not(.no-hover) img {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+table:not(.no-hover) td {
+    position: relative;
+}
+table:not(.no-hover) img:hover {
+    transform: scale(1.5);
+    width: 160px;
+    height: 120px;
+    border-radius: 5px;
+    position: absolute;
+    top: -50%;
+    left: -35%;
+    z-index: 100;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Efek Hover Card */
+.card-hover {
+    text-decoration: none !important;
+    color: inherit;
+}
+.card-hover:hover .card {
+    transform: scale(1.03);
+    transition: all 0.3s ease-in-out;
+}
+
+/* Switch Mode Pengaturan */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: #fff;
+  transition: .4s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: #4E73DF;
+}
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Bar Hari Operasional Pengaturan */
+.days-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  border: 1px solid #4E73DF;
+  border-radius: .25rem;
+}
+.day-item {
+  flex: 1;
+  padding: .75rem 1.25rem;
+  border-right: 1px solid #4E73DF;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  background-color: #fff;
+  color: #4E73DF;
+  transition: background-color .3s, color .3s;
+}
+.day-item:last-child {
+  border-right: none;
+}
+.day-item.active {
+  background-color: #4E73DF;
+  color: #fff;
+}
+
+/* Styling Kalender Hari Libur */
+#calendar a {
+  text-decoration: none !important;
+}
+/* Header: Hari Minggu jadi merah */
+#calendar .fc-col-header-cell:nth-child(1) .fc-col-header-cell-cushion {
+  color: red !important;
+}
+/* Header: Hari lainnya jadi hitam */
+#calendar .fc-col-header-cell:nth-child(n+2) .fc-col-header-cell-cushion {
+  color: black !important;
+}
+/* Tanggal di kalender: Hari Minggu jadi merah */
+#calendar .fc-daygrid-day.fc-day-sun .fc-daygrid-day-number {
+  color: red !important;
+}
+/* Tanggal di kalender: Hari lainnya jadi hitam */
+#calendar .fc-daygrid-day:not(.fc-day-sun) .fc-daygrid-day-number {
+  color: black !important;
+}
+
+/* Foto Pengguna Pengaturan Profil */
+.profile-pic-container {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+}
+.profile-pic {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); 
+}
+.edit-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+.profile-pic-container:hover .edit-overlay {
+    display: flex;
+}
+
+/* Foto Profil Topbar */
+.img-profile {
+    object-fit: cover;
+}
+
+/* Kelola Dataset Wajah */
+.image-item {
+    position: relative;
+    text-align: center;
+}
+.image-item:hover .delete-btn {
+    display: flex;
+}
+.delete-btn {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 25px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    justify-content: center;
+    align-items: center;
+}
