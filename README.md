@@ -1,1 +1,1 @@
-"# sistem_presensi_siswa_tugas_akhir" 
+Sistem presensi siswa otomatis dengan kombinasi RFID dan face recognition menggunakan ESP32-CAM untuk verifikasi wajah. Pengenalan wajah dikembangkan dengan Python (OpenCV, MTCNN, FaceNet InceptionResnetV1, Euclidean distance, Flask), serta menggunakan database MySQL, website PHP, dan terdapat notifikasi ke Telegram orang tua siswa.
