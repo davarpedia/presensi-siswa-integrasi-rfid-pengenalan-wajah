@@ -15,7 +15,7 @@ include 'topbar.php';
   <div class="text-center">
     <div class="error mx-auto" data-text="404">404</div>
     <p class="lead text-gray-800 mb-4">Halaman Tidak Ditemukan</p>
-    <p class="text-gray-500 mb-4">Maaf, halaman ini tidak tersedia. Periksa kembali alamat URL nya atau bisa pergi ke dashboard.</p>
+    <p class="text-gray-500 mb-4">Maaf, halaman ini tidak tersedia. Periksa kembali alamat URL Anda atau bisa pergi ke dashboard.</p>
     <a href="index.php">&larr; Kembali ke Dashboard</a>
   </div>
 

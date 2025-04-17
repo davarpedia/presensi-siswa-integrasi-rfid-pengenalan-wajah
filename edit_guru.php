@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     $stmt->close();
 
-    // Update data tambahan pada tabel guru (NIP, jenis_kelamin, telepon, alamat)
+    // Update data tambahan pada tabel guru (NIP, jenis_kelamin, telepon, alamat, status)
     $stmt = $conn->prepare("UPDATE guru SET nip = ?, jenis_kelamin = ?, telepon = ?, alamat = ?, status = ? WHERE id = ?");
     if (!$stmt) {
         echo json_encode(['success' => false, 'message' => 'Prepare statement error (guru): ' . $conn->error]);
@@ -88,28 +88,38 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_FILES['foto']) && $_FILES['foto']['error'] == 0) {
         // Ambil ekstensi file
         $imageFileType = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
-        // Buat nama file baru, misalnya: id_pengguna_timestamp.ext
-        $foto_baru = $id_pengguna . "_" . date('YmdHis') . "." . $imageFileType;
-        $targetDir = "data/foto/foto_profil_pengguna/";
-        if (!is_dir($targetDir)) {
-            mkdir($targetDir, 0755, true);
-        }
-        $targetFile = $targetDir . $foto_baru;
-        // Validasi file gambar
+        
+        // Pastikan file benar-benar gambar
         $check = getimagesize($_FILES['foto']['tmp_name']);
         if($check === false) {
             echo json_encode(['success' => false, 'message' => 'File yang diupload bukan gambar!']);
             exit;
         }
+        // Validasi ukuran file (maksimal 5MB)
         if ($_FILES['foto']['size'] > 5000000) {
             echo json_encode(['success' => false, 'message' => 'Ukuran file terlalu besar, maksimal 5MB!']);
             exit;
         }
+        
+        // Buat nama file baru dengan format custom: [NamaGuru]_YYYYMMDDHHMMSS.[ekstensi]
+        $namaClean = str_replace(' ', '_', $nama);
+        $timestamp = date("YmdHis");
+        $foto_baru = $namaClean . "_" . $timestamp . "." . $imageFileType;
+        
+        // Tentukan direktori upload
+        $targetDir = "data/foto/foto_profil_pengguna/";
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0755, true);
+        }
+        $targetFile = $targetDir . $foto_baru;
+        
+        // Pindahkan file ke direktori tujuan
         if (!move_uploaded_file($_FILES['foto']['tmp_name'], $targetFile)) {
             echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan saat mengupload file']);
             exit;
         }
-        // Update kolom foto_profil di tabel pengguna
+        
+        // Update kolom foto_profil di tabel pengguna dengan nama file baru
         $stmt = $conn->prepare("UPDATE pengguna SET foto_profil = ? WHERE id = ?");
         if (!$stmt) {
             echo json_encode(['success' => false, 'message' => 'Prepare statement error (update foto): ' . $conn->error]);

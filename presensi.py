@@ -479,7 +479,7 @@ def record_attendance(rfid):
             return
         
         # Ambil NIS dan nama siswa berdasarkan RFID
-        cursor.execute("SELECT nis, nama, kelas, alamat, token, id_chat FROM siswa WHERE no_rfid = %s", (rfid,))
+        cursor.execute("SELECT s.nis, s.nama, k.nama_kelas, s.alamat, s.token, s.id_chat FROM siswa s JOIN kelas k ON s.id_kelas = k.id WHERE s.no_rfid = %s", (rfid,))
         result = cursor.fetchone()
         
         if not result:
