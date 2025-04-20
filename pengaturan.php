@@ -115,7 +115,7 @@ if ($result->num_rows > 0) {
     </div>
 
     <!-- Card: Hari Operasional -->
-    <div class="col-lg-8 mb-4">
+    <div class="col-12 mb-4">
       <div class="card h-100 border">
         <div class="card-header text-primary font-weight-bold">
           Hari Operasional
@@ -150,7 +150,7 @@ if ($result->num_rows > 0) {
     </div>
 
     <!-- Card: Pengelolaan Hari Libur -->
-    <div class="col-lg-4 mb-4">
+    <!-- <div class="col-lg-4 mb-4">
       <div class="card h-100 border">
         <div class="card-header text-primary font-weight-bold">
           Hari Libur
@@ -159,7 +159,7 @@ if ($result->num_rows > 0) {
           <button type="button" class="btn btn-primary" onclick="window.location.href='hari_libur.php'">Kelola Hari Libur</button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
 
   <!-- Script JavaScript (AJAX & interaksi) -->
