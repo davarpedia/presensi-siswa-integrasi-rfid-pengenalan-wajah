@@ -59,7 +59,7 @@ status_lock = threading.Lock()
 
 # IP Address ESP32 dan ESP32-CAM
 ESP32_IP = "192.168.10.26:80"
-ESP32CAM_IP = "192.168.10.205:80"
+ESP32CAM_IP = "192.168.10.99:80"
 
 #####################################
 # KONEKSI DATABASE MYSQL
