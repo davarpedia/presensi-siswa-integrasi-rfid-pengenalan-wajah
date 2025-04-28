@@ -21,28 +21,28 @@ function getHolidayDates($conn, $start, $end, $operationalDays) {
     $startDate = new DateTime($start);
     $endDate   = new DateTime($end);
     $endDate->modify('+1 day');
-    $interval = new DateInterval('P1D');
-    $period   = new DatePeriod($startDate, $interval, $endDate);
+    $period    = new DatePeriod($startDate, new DateInterval('P1D'), $endDate);
 
+    // 1) Semua tanggal yang bukan hari operasional
     foreach ($period as $dt) {
-        $tanggal = $dt->format('Y-m-d');
-        $dayNum  = $dt->format('N');
+        $dayNum = $dt->format('N'); // 1=Senin ... 7=Minggu
         if (!in_array($dayNum, $operationalDays)) {
-            $dates[] = $tanggal;
+            $dates[] = $dt->format('Y-m-d');
         }
     }
 
-    $query = "SELECT tanggal_mulai, tanggal_selesai 
-              FROM hari_libur 
-              WHERE tanggal_mulai <= '$end' AND tanggal_selesai >= '$start'";
-    $result = $conn->query($query);
-    if ($result) {
-        while ($row = $result->fetch_assoc()) {
-            $mulai = new DateTime($row['tanggal_mulai']);
-            $selesai = new DateTime($row['tanggal_selesai']);
-            while ($mulai <= $selesai) {
-                $dates[] = $mulai->format('Y-m-d');
-                $mulai->modify('+1 day');
+    // 2) Semua tanggal dari tabel hari_libur
+    $sql = "SELECT tanggal_mulai, tanggal_selesai 
+            FROM hari_libur
+            WHERE tanggal_mulai <= '$end' 
+              AND tanggal_selesai >= '$start'";
+    if ($res = $conn->query($sql)) {
+        while ($row = $res->fetch_assoc()) {
+            $m = new DateTime($row['tanggal_mulai']);
+            $s = new DateTime($row['tanggal_selesai']);
+            while ($m <= $s) {
+                $dates[] = $m->format('Y-m-d');
+                $m->modify('+1 day');
             }
         }
     }
@@ -50,164 +50,172 @@ function getHolidayDates($conn, $start, $end, $operationalDays) {
     return array_unique($dates);
 }
 
-// Pengaturan default dan ambil pengaturan dari database
+// Ambil pengaturan jam masuk & hari operasional
 $jam_batas_default = "07:00";
 $jam_batas         = $jam_batas_default;
-$operationalDays   = [];
+$operationalDays   = []; // misal ['1','2','3','4','5']
 
-$queryPengaturan = "SELECT jam_masuk, hari_operasional FROM pengaturan WHERE id = 1";
-$resultPengaturan = $conn->query($queryPengaturan);
-if ($resultPengaturan && $resultPengaturan->num_rows > 0) {
-    $row = $resultPengaturan->fetch_assoc();
-    if (!empty($row['jam_masuk'])) {
-        $jam_batas = $row['jam_masuk'];
-    }
-    if (!empty($row['hari_operasional'])) {
-        $operationalDays = array_map('trim', explode(',', $row['hari_operasional']));
+if ($rp = $conn->query("SELECT jam_masuk, hari_operasional FROM pengaturan WHERE id = 1")) {
+    if ($r = $rp->fetch_assoc()) {
+        if (!empty($r['jam_masuk'])) {
+            $jam_batas = $r['jam_masuk'];
+        }
+        if (!empty($r['hari_operasional'])) {
+            $operationalDays = array_map('trim', explode(',', $r['hari_operasional']));
+        }
     }
 }
 
-// Inisialisasi variabel default
-$totalDays = 0;
+// Inisialisasi
+$totalDays          = 0;
 $totalHolidayUnique = 0;
-$totalEffective = 0;
+$totalEffective     = 0;
 $totalEffectiveAlpa = 0;
-$today = date('Y-m-d');
-$allHolidayDates = [];
+$today              = date('Y-m-d');
+$allHolidayDates    = [];
 
-if (!empty($tanggalMulai) && !empty($tanggalAkhir)) {
-    // Hitung jumlah total hari
-    $totalDays = (strtotime($tanggalAkhir) - strtotime($tanggalMulai)) / (60 * 60 * 24) + 1;
+// Hitung hari & libur jika filter tanggal diisi
+if ($tanggalMulai && $tanggalAkhir) {
+    // Total hari dalam rentang
+    $totalDays = (strtotime($tanggalAkhir) - strtotime($tanggalMulai)) / 86400 + 1;
 
-    // Ambil semua tanggal libur dan non-operasional
-    $allHolidayDates = getHolidayDates($conn, $tanggalMulai, $tanggalAkhir, $operationalDays);
+    // Ambil semua hari libur + non-operasional
+    $allHolidayDates    = getHolidayDates($conn, $tanggalMulai, $tanggalAkhir, $operationalDays);
     $totalHolidayUnique = count($allHolidayDates);
 
-    // Total hari efektif (bukan hari libur)
+    // Buat string untuk SQL NOT IN(...)
+    if ($totalHolidayUnique > 0) {
+        $holidayIn = "'" . implode("','", $allHolidayDates) . "'";
+    } else {
+        $holidayIn = "''";
+    }
+
+    // Total hari operasional
     $totalEffective = $totalDays - $totalHolidayUnique;
 
-    // Perhitungan khusus untuk status Alpa (hanya sampai hari ini)
-    $tanggalAkhirAlpa = (strtotime($tanggalAkhir) > strtotime($today)) ? $today : $tanggalAkhir;
-
-    if (strtotime($tanggalAkhirAlpa) >= strtotime($tanggalMulai)) {
-        $totalDaysAlpa = (strtotime($tanggalAkhirAlpa) - strtotime($tanggalMulai)) / (60 * 60 * 24) + 1;
-        $holidayAlpa = getHolidayDates($conn, $tanggalMulai, $tanggalAkhirAlpa, $operationalDays);
-        $totalEffectiveAlpa = $totalDaysAlpa - count($holidayAlpa);
+    // Hitung Alpa hanya sampai hari ini
+    $tsAkhirAlpa = min(strtotime($tanggalAkhir), strtotime($today));
+    if ($tsAkhirAlpa >= strtotime($tanggalMulai)) {
+        $daysAlpa       = ($tsAkhirAlpa - strtotime($tanggalMulai)) / 86400 + 1;
+        $holidayUpToNow = array_filter($allHolidayDates, fn($d) => strtotime($d) <= $tsAkhirAlpa);
+        $totalEffectiveAlpa = $daysAlpa - count($holidayUpToNow);
     } else {
         $totalEffectiveAlpa = 0;
     }
 }
 
-// Ambil data kelas
+// Ambil daftar kelas sesuai level
 $kelasList = [];
 if ($isAdmin) {
-    // Untuk Admin, ambil semua kelas
-    $sqlKelas = "SELECT * FROM kelas ORDER BY nama_kelas ASC";
-    $resultKelas = $conn->query($sqlKelas);
-    if ($resultKelas && $resultKelas->num_rows > 0) {
-        while ($rowKelas = $resultKelas->fetch_assoc()) {
-            $kelasList[] = $rowKelas;
-        }
+    $q = $conn->query("SELECT * FROM kelas ORDER BY nama_kelas ASC");
+    while ($r = $q->fetch_assoc()) {
+        $kelasList[] = $r;
     }
 } else {
-    // Untuk Guru, hanya ambil kelas yang diajarnya
-    $guruId = $_SESSION['guru_id'] ?? null;
-    $sqlKelas = "SELECT k.* 
-                 FROM kelas k 
-                 JOIN guru g ON k.id_guru = g.id 
-                 WHERE g.id = ? AND g.status = 'Aktif'
-                 ORDER BY k.nama_kelas ASC";
-    $stmt = $conn->prepare($sqlKelas);
-    $stmt->bind_param('i', $guruId);
+    $stmt = $conn->prepare("
+        SELECT k.* 
+        FROM kelas k
+        JOIN guru g ON k.id_guru = g.id
+        WHERE g.id = ? AND g.status = 'Aktif'
+        ORDER BY k.nama_kelas ASC
+    ");
+    $stmt->bind_param('i', $_SESSION['guru_id']);
     $stmt->execute();
-    $resultKelas = $stmt->get_result();
-    while ($rowKelas = $resultKelas->fetch_assoc()) {
-         $kelasList[] = $rowKelas;
+    $rs = $stmt->get_result();
+    while ($r = $rs->fetch_assoc()) {
+        $kelasList[] = $r;
     }
     $stmt->close();
 }
 
-// Siapkan klausa untuk filter kelas berdasarkan level:
-// Admin: jika $kelasFilter kosong, tampilkan semua. 
-// Guru: jika $kelasFilter kosong, paksa query mengembalikan hasil kosong.
+// Siapkan klausa filter kelas
 if ($isAdmin) {
     $kelasClause = "('$kelasFilter' = '' OR s.id_kelas = '$kelasFilter')";
 } else {
-    $kelasClause = !empty($kelasFilter) ? "s.id_kelas = '$kelasFilter'" : "1=0";
+    $kelasClause = $kelasFilter 
+                 ? "s.id_kelas = '$kelasFilter'" 
+                 : "1=0";
 }
 
-// Query rekap ringkasan jika tanggal sudah diisi
-if (!empty($tanggalMulai) && !empty($tanggalAkhir)) {
+// Query rekap ringkasan
+if ($tanggalMulai && $tanggalAkhir) {
     $sqlRekap = "
-        SELECT  
-            s.nis, 
-            s.nama, 
-            s.id_kelas,
-            k.nama_kelas,
-            COUNT(DISTINCT CASE WHEN p.status = 'Hadir' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_hadir,
-            COUNT(DISTINCT CASE WHEN p.status = 'Izin' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_izin,
-            COUNT(DISTINCT CASE WHEN p.status = 'Sakit' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_sakit,
+    SELECT
+      s.nis,
+      s.nama,
+      k.nama_kelas,
+
+      COUNT(DISTINCT CASE WHEN p.status='Hadir'  AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_hadir,
+      COUNT(DISTINCT CASE WHEN p.status='Izin'   AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_izin,
+      COUNT(DISTINCT CASE WHEN p.status='Sakit'  AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_sakit,
+      COUNT(DISTINCT CASE 
+          WHEN p.status='Masuk'
+               AND (p.waktu_keluar='' OR p.waktu_keluar IS NULL)
+               AND p.tanggal<CURDATE()
+          THEN p.tanggal END) AS total_bolos,
+
+      /* Alpa = hari efektif s.d. hari ini – (hadir+izin+sakit+bolos) */
+      (
+        {$totalEffectiveAlpa}
+        - (
+            COUNT(DISTINCT CASE WHEN p.status IN ('Hadir','Izin','Sakit') AND p.tanggal<=CURDATE() THEN p.tanggal END)
+            +
             COUNT(DISTINCT CASE 
-                WHEN p.status = 'Masuk' 
-                     AND (p.waktu_keluar IS NULL OR p.waktu_keluar = '') 
-                     AND p.tanggal < CURDATE() 
-                THEN p.tanggal 
-            END) AS total_bolos,
-            (
-              $totalEffectiveAlpa
-              - (
-                  COUNT(DISTINCT CASE WHEN p.status IN ('Hadir','Izin','Sakit') AND p.tanggal <= CURDATE() THEN p.tanggal END)
-                  +
-                  COUNT(DISTINCT CASE 
-                      WHEN p.status = 'Masuk' 
-                           AND (p.waktu_keluar IS NULL OR p.waktu_keluar = '') 
-                           AND p.tanggal < CURDATE() 
-                      THEN p.tanggal 
-                  END)
-              )
-            ) AS total_alpa,
-            COUNT(DISTINCT CASE WHEN p.waktu_masuk > '$jam_batas' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_terlambat,
-            (
-                COUNT(DISTINCT CASE WHEN p.status = 'Hadir' AND p.tanggal <= CURDATE() THEN p.tanggal END)
-                / 
-                CASE WHEN $totalEffectiveAlpa > 0 THEN $totalEffectiveAlpa ELSE 1 END
-            ) * 100 AS persentase_kehadiran
-        FROM siswa s
-        LEFT JOIN presensi p 
-            ON s.no_rfid = p.no_rfid 
-            AND (p.tanggal BETWEEN '$tanggalMulai' AND '$tanggalAkhir')
-        LEFT JOIN kelas k ON s.id_kelas = k.id
-        WHERE 
-            s.status = 'Aktif'
-            AND $kelasClause
-        GROUP BY 
-            s.nis
-        ORDER BY 
-            s.nis ASC
+                WHEN p.status='Masuk'
+                     AND (p.waktu_keluar='' OR p.waktu_keluar IS NULL)
+                     AND p.tanggal<CURDATE()
+                THEN p.tanggal END)
+        )
+      ) AS total_alpa,
+
+      COUNT(DISTINCT CASE WHEN p.waktu_masuk>'$jam_batas' AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_terlambat,
+
+      /* Persentase kehadiran = hadir / totalEffectiveAlpa * 100 */
+      CASE WHEN {$totalEffectiveAlpa}>0 THEN
+        (COUNT(DISTINCT CASE WHEN p.status='Hadir' AND p.tanggal<=CURDATE() THEN p.tanggal END)
+         / {$totalEffectiveAlpa}
+        ) * 100
+      ELSE 0 END AS persentase_kehadiran
+
+    FROM siswa s
+    LEFT JOIN presensi p
+      ON s.no_rfid = p.no_rfid
+     AND p.tanggal BETWEEN '$tanggalMulai' AND '$tanggalAkhir'
+     /* <-- EXCLUDE HARI LIBUR/NON-OP */
+     AND p.tanggal NOT IN ({$holidayIn})
+    LEFT JOIN kelas k ON s.id_kelas = k.id
+    WHERE s.status='Aktif'
+      AND {$kelasClause}
+    GROUP BY s.nis
+    ORDER BY s.nis ASC
     ";
     $resultRekap = $conn->query($sqlRekap);
 }
 
-// Siapkan data untuk detail presensi (seluruh tanggal dalam rentang)
+// Siapkan data tanggal untuk detail presensi harian
 $allDates = [];
-if (!empty($tanggalMulai) && !empty($tanggalAkhir)) {
-    $startD = new DateTime($tanggalMulai);
-    $endD   = new DateTime($tanggalAkhir);
-    $endD->modify('+1 day');
-    $periodD = new DatePeriod($startD, new DateInterval('P1D'), $endD);
-    foreach ($periodD as $dt) {
-        $allDates[] = $dt->format('Y-m-d');
+if ($tanggalMulai && $tanggalAkhir) {
+    $sd = new DateTime($tanggalMulai);
+    $ed = new DateTime($tanggalAkhir);
+    $ed->modify('+1 day');
+    $pd = new DatePeriod($sd, new DateInterval('P1D'), $ed);
+    foreach ($pd as $d) {
+        $allDates[] = $d->format('Y-m-d');
     }
 }
+
 // Ambil data siswa untuk detail presensi
-$sqlSiswa = "SELECT s.nis, s.nama, k.nama_kelas 
-             FROM siswa s 
-             LEFT JOIN kelas k ON s.id_kelas = k.id
-             WHERE s.status = 'Aktif'
-               AND $kelasClause
-             ORDER BY s.nis ASC";
+$sqlSiswa = "
+  SELECT s.nis, s.nama, k.nama_kelas
+  FROM siswa s
+  LEFT JOIN kelas k ON s.id_kelas = k.id
+  WHERE s.status='Aktif'
+    AND {$kelasClause}
+  ORDER BY s.nis ASC
+";
 $resultSiswa = $conn->query($sqlSiswa);
 ?>
+
 <!-- Begin Page Content -->
 <div class="container-fluid">
   <!-- Page Heading -->

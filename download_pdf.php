@@ -5,7 +5,7 @@ require_once 'koneksi.php';
 use Dompdf\Dompdf;
 
 // Ambil filter dari URL/form
-$kelasFilter  = $_GET['kelas'] ?? '';
+$kelasFilter  = $_GET['kelas']      ?? '';
 $tanggalMulai = $_GET['tanggal_mulai'] ?? '';
 $tanggalAkhir = $_GET['tanggal_akhir'] ?? '';
 
@@ -14,7 +14,7 @@ $jam_batas_default = "07:00";
 $jam_batas         = $jam_batas_default;
 $operationalDays   = [];
 
-$queryPengaturan = "SELECT jam_masuk, hari_operasional FROM pengaturan WHERE id = 1";
+$queryPengaturan  = "SELECT jam_masuk, hari_operasional FROM pengaturan WHERE id = 1";
 $resultPengaturan = $conn->query($queryPengaturan);
 if ($resultPengaturan && $resultPengaturan->num_rows > 0) {
     $rowPengaturan = $resultPengaturan->fetch_assoc();
@@ -28,189 +28,180 @@ if ($resultPengaturan && $resultPengaturan->num_rows > 0) {
 }
 
 // Inisialisasi variabel default
-$totalDays = 0;
+$totalDays          = 0;
 $totalHolidayUnique = 0;
-$totalEffective = 0;
+$totalEffective     = 0;
 $totalEffectiveAlpa = 0;
-$today = date('Y-m-d');
-$allHolidayDates = [];
+$today              = date('Y-m-d');
+$allHolidayDates    = [];
 
 if (!empty($tanggalMulai) && !empty($tanggalAkhir)) {
-    // --- Perhitungan hari keseluruhan ---
+    // --- Hitung total hari dalam rentang ---
     $totalDays = (strtotime($tanggalAkhir) - strtotime($tanggalMulai)) / (60 * 60 * 24) + 1;
 
-    // Kumpulkan seluruh tanggal dalam rentang
+    // 1) Kumpulkan seluruh tanggal dalam rentang
     $allDatesRaw = [];
     $startDate   = new DateTime($tanggalMulai);
     $endDate     = new DateTime($tanggalAkhir);
-    $endDate->modify('+1 day'); // agar inklusif
+    $endDate->modify('+1 day'); // inklusif
     $interval    = new DateInterval('P1D');
     $period      = new DatePeriod($startDate, $interval, $endDate);
     foreach ($period as $dt) {
         $allDatesRaw[] = $dt->format('Y-m-d');
     }
 
-    // Tanggal non-operasional (hari libur mingguan)
+    // 2) Tandai hari libur mingguan (non-operasional)
     $nonOperationalDates = [];
     foreach ($allDatesRaw as $tgl) {
-        $day_number = date('N', strtotime($tgl));
-        if (!in_array($day_number, $operationalDays)) {
+        $dayNumber = date('N', strtotime($tgl)); // 1=Senin … 7=Minggu
+        if (!in_array($dayNumber, $operationalDays)) {
             $nonOperationalDates[] = $tgl;
         }
     }
 
-    // Ambil semua record hari libur (libur nasional, dsb) yang tumpang tindih dengan rentang
-    $queryHolidayDates = "
+    // 3) Ambil libur nasional/dll dari tabel hari_libur
+    $queryHolidayDates  = "
         SELECT tanggal_mulai, tanggal_selesai 
         FROM hari_libur 
         WHERE tanggal_mulai <= '$tanggalAkhir' 
-        AND tanggal_selesai >= '$tanggalMulai'
+          AND tanggal_selesai >= '$tanggalMulai'
     ";
     $resultHolidayDates = $conn->query($queryHolidayDates);
-    $holidayDates = [];
-
+    $holidayDates       = [];
     if ($resultHolidayDates) {
         while ($row = $resultHolidayDates->fetch_assoc()) {
-            // Tentukan batas mulai dan akhir untuk tiap periode libur yang tumpang tindih
-            $liburMulai = max($tanggalMulai, $row['tanggal_mulai']); // ambil tanggal lebih besar antara tanggalMulai dan tanggal_mulai di record
-            $liburSelesai = min($tanggalAkhir, $row['tanggal_selesai']); // ambil tanggal lebih kecil antara tanggalAkhir dan tanggal_selesai di record
-
-            // Generate daftar tanggal untuk periode libur ini
-            $period = new DatePeriod(
+            $liburMulai   = max($tanggalMulai,   $row['tanggal_mulai']);
+            $liburSelesai = min($tanggalAkhir,   $row['tanggal_selesai']);
+            $p = new DatePeriod(
                 new DateTime($liburMulai),
                 new DateInterval('P1D'),
-                (new DateTime($liburSelesai))->modify('+1 day') // +1 day karena DatePeriod tidak inklusif pada tanggal akhir
+                (new DateTime($liburSelesai))->modify('+1 day')
             );
-            foreach ($period as $dt) {
+            foreach ($p as $dt) {
                 $holidayDates[] = $dt->format('Y-m-d');
             }
         }
     }
 
-    // Gabungkan tanggal non-operasional dan hari libur
-    $allHolidayDates = array_unique(array_merge($nonOperationalDates, $holidayDates));
+    // 4) Gabungkan dan unikkan
+    $allHolidayDates    = array_unique(array_merge($nonOperationalDates, $holidayDates));
     $totalHolidayUnique = count($allHolidayDates);
 
-    // Total hari masuk (efektif) untuk seluruh rentang
+    // 5) Bangun string SQL untuk exclude
+    if ($totalHolidayUnique > 0) {
+        $holidayIn = "'" . implode("','", $allHolidayDates) . "'";
+    } else {
+        $holidayIn = "''";
+    }
+
+    // 6) Hitung total hari operasional
     $totalEffective = $totalDays - $totalHolidayUnique;
 
-    // --- Perhitungan hari efektif untuk perhitungan Alpa (dibatasi sampai hari ini) ---
+    // --- Hitung Alpa sampai hari ini ---
     $tanggalAkhirAlpa = (strtotime($tanggalAkhir) > strtotime($today)) ? $today : $tanggalAkhir;
     if (strtotime($tanggalAkhirAlpa) >= strtotime($tanggalMulai)) {
-        $totalDaysAlpa = (strtotime($tanggalAkhirAlpa) - strtotime($tanggalMulai)) / (60 * 60 * 24) + 1;
-        $allDatesAlpa = [];
-        $startAlpa = new DateTime($tanggalMulai);
-        $endAlpa   = new DateTime($tanggalAkhirAlpa);
+        $totalDaysAlpa = (strtotime($tanggalAkhirAlpa) - strtotime($tanggalMulai)) / (60*60*24) + 1;
+
+        // hari non-op mingguan untuk Alpa
+        $allDatesAlpa  = [];
+        $startAlpa     = new DateTime($tanggalMulai);
+        $endAlpa       = new DateTime($tanggalAkhirAlpa);
         $endAlpa->modify('+1 day');
-        $periodAlpa = new DatePeriod($startAlpa, $interval, $endAlpa);
+        $periodAlpa    = new DatePeriod($startAlpa, $interval, $endAlpa);
+        $nonOpAlpa     = [];
         foreach ($periodAlpa as $dtAlpa) {
-            $allDatesAlpa[] = $dtAlpa->format('Y-m-d');
-        }
-        $nonOpAlpa = [];
-        foreach ($allDatesAlpa as $tglA) {
-            $dayNumA = date('N', strtotime($tglA));
-            if (!in_array($dayNumA, $operationalDays)) {
+            $tglA = $dtAlpa->format('Y-m-d');
+            if (!in_array(date('N', strtotime($tglA)), $operationalDays)) {
                 $nonOpAlpa[] = $tglA;
             }
         }
 
-        // --- Update query untuk mengambil record libur sesuai periode ---
+        // libur untuk Alpa
         $queryHolidayAlpa = "
             SELECT tanggal_mulai, tanggal_selesai 
             FROM hari_libur 
             WHERE tanggal_mulai <= '$tanggalAkhirAlpa'
-            AND tanggal_selesai >= '$tanggalMulai'
+              AND tanggal_selesai >= '$tanggalMulai'
         ";
         $resHolAlpa = $conn->query($queryHolidayAlpa);
         $holidayAlpa = [];
-
         if ($resHolAlpa) {
             while ($rowH = $resHolAlpa->fetch_assoc()) {
-                // Batasi periode libur sesuai rentang tanggal alpa
-                $liburMulaiAlpa = max($tanggalMulai, $rowH['tanggal_mulai']);
-                $liburSelesaiAlpa = min($tanggalAkhirAlpa, $rowH['tanggal_selesai']);
-
-                // Generate tanggal libur untuk periode ini
-                $periodHol = new DatePeriod(
-                    new DateTime($liburMulaiAlpa),
+                $lMulai   = max($tanggalMulai,   $rowH['tanggal_mulai']);
+                $lSelesai = min($tanggalAkhirAlpa, $rowH['tanggal_selesai']);
+                $p2 = new DatePeriod(
+                    new DateTime($lMulai),
                     new DateInterval('P1D'),
-                    (new DateTime($liburSelesaiAlpa))->modify('+1 day')
+                    (new DateTime($lSelesai))->modify('+1 day')
                 );
-                foreach ($periodHol as $dtHol) {
+                foreach ($p2 as $dtHol) {
                     $holidayAlpa[] = $dtHol->format('Y-m-d');
                 }
             }
         }
 
-        $allHolAlpa = array_unique(array_merge($nonOpAlpa, $holidayAlpa));
-        $totalHolAlpa = count($allHolAlpa);
-        $totalEffectiveAlpa = $totalDaysAlpa - $totalHolAlpa;
+        $allHolAlpa         = array_unique(array_merge($nonOpAlpa, $holidayAlpa));
+        $totalEffectiveAlpa = $totalDaysAlpa - count($allHolAlpa);
     } else {
         $totalEffectiveAlpa = 0;
     }
 }
 
-// Fungsi helper untuk memformat tanggal ke format Bahasa Indonesia
+// Helper: format tanggal ke Bahasa Indonesia
 function formatTanggalDisplay($tanggal) {
     if (!$tanggal) return '';
-    $date = new DateTime($tanggal);
-    $bulanIndo = [
-        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    $tanggalFormat = $date->format('j');
-    $bulan         = $bulanIndo[(int)$date->format('n') - 1];
-    $tahun         = $date->format('Y');
-    return $tanggalFormat . ' ' . $bulan . ' ' . $tahun;
+    $d = new DateTime($tanggal);
+    $bulan = ['Januari','Februari','Maret','April','Mei','Juni',
+              'Juli','Agustus','September','Oktober','November','Desember'];
+    return $d->format('j') . ' ' . $bulan[$d->format('n')-1] . ' ' . $d->format('Y');
 }
 
-// Query rekap presensi dengan perhitungan hari efektif (Alpa & Persentase)
-$sql = "SELECT  
-            s.nis, 
-            s.nama, 
-            s.id_kelas,
-            k.nama_kelas,
-            COUNT(DISTINCT CASE WHEN p.status = 'Hadir' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_hadir,
-            COUNT(DISTINCT CASE WHEN p.status = 'Izin' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_izin,
-            COUNT(DISTINCT CASE WHEN p.status = 'Sakit' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_sakit,
-            COUNT(DISTINCT CASE 
-                WHEN p.status = 'Masuk' 
-                     AND (p.waktu_keluar IS NULL OR p.waktu_keluar = '') 
-                     AND p.tanggal < CURDATE() 
-                THEN p.tanggal 
-            END) AS total_bolos,
-            (
-              $totalEffectiveAlpa
-              - (
-                  COUNT(DISTINCT CASE WHEN p.status IN ('Hadir','Izin','Sakit') AND p.tanggal <= CURDATE() THEN p.tanggal END)
-                  +
-                  COUNT(DISTINCT CASE 
-                      WHEN p.status = 'Masuk' 
-                           AND (p.waktu_keluar IS NULL OR p.waktu_keluar = '') 
-                           AND p.tanggal < CURDATE() 
-                      THEN p.tanggal 
-                  END)
-              )
-            ) AS total_alpa,
-            COUNT(DISTINCT CASE WHEN p.waktu_masuk > '$jam_batas' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_terlambat,
-            (
-                COUNT(DISTINCT CASE WHEN p.status = 'Hadir' AND p.tanggal <= CURDATE() THEN p.tanggal END)
-                / 
-                CASE WHEN $totalEffectiveAlpa > 0 THEN $totalEffectiveAlpa ELSE 1 END
-            ) * 100 AS persentase_kehadiran
-        FROM siswa s
-        LEFT JOIN presensi p 
-            ON s.no_rfid = p.no_rfid 
-            AND (p.tanggal BETWEEN '$tanggalMulai' AND '$tanggalAkhir')
-        LEFT JOIN kelas k 
-            ON s.id_kelas = k.id
-        WHERE 
-            s.status = 'Aktif'
-            AND ('$kelasFilter' = '' OR s.id_kelas = '$kelasFilter')
-        GROUP BY 
-            s.nis
-        ORDER BY 
-            s.nis ASC";
+// Query rekap presensi dengan pengecualian hari libur/non-operasional
+$sql = "
+    SELECT  
+        s.nis, 
+        s.nama, 
+        s.id_kelas,
+        k.nama_kelas,
+        COUNT(DISTINCT CASE WHEN p.status='Hadir'  AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_hadir,
+        COUNT(DISTINCT CASE WHEN p.status='Izin'   AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_izin,
+        COUNT(DISTINCT CASE WHEN p.status='Sakit'  AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_sakit,
+        COUNT(DISTINCT CASE 
+            WHEN p.status='Masuk'
+                 AND (p.waktu_keluar='' OR p.waktu_keluar IS NULL)
+                 AND p.tanggal<CURDATE()
+            THEN p.tanggal END) AS total_bolos,
+        (
+          $totalEffectiveAlpa
+          - (
+              COUNT(DISTINCT CASE WHEN p.status IN ('Hadir','Izin','Sakit') AND p.tanggal<=CURDATE() THEN p.tanggal END)
+              +
+              COUNT(DISTINCT CASE 
+                  WHEN p.status='Masuk'
+                       AND (p.waktu_keluar='' OR p.waktu_keluar IS NULL)
+                       AND p.tanggal<CURDATE()
+                  THEN p.tanggal END)
+          )
+        ) AS total_alpa,
+        COUNT(DISTINCT CASE WHEN p.waktu_masuk>'$jam_batas' AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_terlambat,
+        CASE WHEN $totalEffectiveAlpa>0 THEN
+          (COUNT(DISTINCT CASE WHEN p.status='Hadir' AND p.tanggal<=CURDATE() THEN p.tanggal END)
+           / $totalEffectiveAlpa
+          )*100
+        ELSE 0 END AS persentase_kehadiran
+    FROM siswa s
+    LEFT JOIN presensi p 
+      ON s.no_rfid = p.no_rfid
+     AND (p.tanggal BETWEEN '$tanggalMulai' AND '$tanggalAkhir')
+     AND p.tanggal NOT IN ($holidayIn)
+    LEFT JOIN kelas k 
+      ON s.id_kelas = k.id
+    WHERE 
+        s.status = 'Aktif'
+        AND ('$kelasFilter' = '' OR s.id_kelas = '$kelasFilter')
+    GROUP BY s.nis
+    ORDER BY s.nis ASC
+";
 
 $result = $conn->query($sql);
 
@@ -327,8 +318,8 @@ ob_start();
                         <td><?= htmlspecialchars($row['total_bolos']) ?></td>
                         <td><?= htmlspecialchars($row['total_terlambat']) ?></td>
                         <td>
-                            <?= ($row['persentase_kehadiran'] == floor($row['persentase_kehadiran'])) 
-                                ? number_format($row['persentase_kehadiran'], 0) 
+                            <?= ($row['persentase_kehadiran'] == floor($row['persentase_kehadiran']))
+                                ? number_format($row['persentase_kehadiran'], 0)
                                 : number_format($row['persentase_kehadiran'], 2) ?>%
                         </td>
                     </tr>
@@ -356,7 +347,7 @@ $conn->close();
 
 // Fungsi helper untuk mendapatkan nama kelas berdasarkan id
 function getKelasName($conn, $idKelas) {
-    $sql = "SELECT nama_kelas FROM kelas WHERE id = '$idKelas'";
+    $sql    = "SELECT nama_kelas FROM kelas WHERE id = '$idKelas'";
     $result = $conn->query($sql);
     if ($result && $result->num_rows > 0) {
         $row = $result->fetch_assoc();

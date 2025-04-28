@@ -14,227 +14,224 @@ function formatTanggal($tanggal) {
     if (!$tanggal) return '';
     $date = new DateTime($tanggal);
     $bulanIndo = [
-        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        'Januari','Februari','Maret','April','Mei','Juni',
+        'Juli','Agustus','September','Oktober','November','Desember'
     ];
-    $tanggalFormat = $date->format('j');
-    $bulan = $bulanIndo[(int)$date->format('n') - 1];
-    $tahun = $date->format('Y');
-    return $tanggalFormat . ' ' . $bulan . ' ' . $tahun;
+    $d = $date->format('j');
+    $b = $bulanIndo[(int)$date->format('n') - 1];
+    $y = $date->format('Y');
+    return "$d $b $y";
 }
 
 // Ambil filter dari request
-$kelasFilter = $_GET['kelas'] ?? '';
+$kelasFilter  = $_GET['kelas']         ?? '';
 $tanggalMulai = $_GET['tanggal_mulai'] ?? '';
 $tanggalAkhir = $_GET['tanggal_akhir'] ?? '';
 
-// Ambil pengaturan dari database: jam_masuk dan hari_operasional
+// Ambil pengaturan dari database: jam masuk dan hari operasional
 $jam_batas_default = "07:00";
-$jam_batas = $jam_batas_default;
-$operationalDays = array();
-$queryPengaturan = "SELECT jam_masuk, hari_operasional FROM pengaturan WHERE id = 1";
+$jam_batas         = $jam_batas_default;
+$operationalDays   = [];
+
+$queryPengaturan  = "SELECT jam_masuk, hari_operasional FROM pengaturan WHERE id = 1";
 $resultPengaturan = $conn->query($queryPengaturan);
 if ($resultPengaturan && $resultPengaturan->num_rows > 0) {
-    $rowPengaturan = $resultPengaturan->fetch_assoc();
-    if (!empty($rowPengaturan['jam_masuk'])) {
-        $jam_batas = $rowPengaturan['jam_masuk'];
+    $row = $resultPengaturan->fetch_assoc();
+    if (!empty($row['jam_masuk'])) {
+        $jam_batas = $row['jam_masuk'];
     }
-    if (!empty($rowPengaturan['hari_operasional'])) {
-        $operationalDays = array_map('trim', explode(',', $rowPengaturan['hari_operasional']));
+    if (!empty($row['hari_operasional'])) {
+        $operationalDays = array_map('trim', explode(',', $row['hari_operasional']));
     }
 }
 
-// Hitung total hari, total hari libur (gabungan hari non-operasional dan libur tambahan),
-// serta total hari masuk (efektif) untuk periode
-$totalDays = 0;
+// Inisialisasi variabel default
+$totalDays          = 0;
 $totalHolidayUnique = 0;
-$totalEffective = 0;
+$totalEffective     = 0;
+$totalEffectiveAlpa = 0;
+$today              = date('Y-m-d');
+$allHolidayDates    = [];
+// Default untuk SQL exclude
+$holidayIn = "''";
 
 if (!empty($tanggalMulai) && !empty($tanggalAkhir)) {
-    // Hitung total hari dalam rentang
-    $totalDays = (strtotime($tanggalAkhir) - strtotime($tanggalMulai)) / (60 * 60 * 24) + 1;
-    
-    // Generate daftar tanggal non-operasional dari hari-hari yang tidak termasuk dalam operationalDays
-    $nonOperationalDates = array();
-    $startDate = new DateTime($tanggalMulai);
-    $endDate   = new DateTime($tanggalAkhir);
+    // --- Hitung total hari dalam rentang ---
+    $totalDays = (strtotime($tanggalAkhir) - strtotime($tanggalMulai)) / 86400 + 1;
+
+    // 1) Kumpulkan seluruh tanggal dalam rentang
+    $allDatesRaw = [];
+    $startDate   = new DateTime($tanggalMulai);
+    $endDate     = new DateTime($tanggalAkhir);
     $endDate->modify('+1 day');
-    $interval = new DateInterval('P1D');
-    $period = new DatePeriod($startDate, $interval, $endDate);
+    $interval    = new DateInterval('P1D');
+    $period      = new DatePeriod($startDate, $interval, $endDate);
     foreach ($period as $dt) {
-        $day_number = $dt->format('N'); // 1 (Senin) sampai 7 (Minggu)
-        if (!in_array($day_number, $operationalDays)) {
-            $nonOperationalDates[] = $dt->format('Y-m-d');
+        $allDatesRaw[] = $dt->format('Y-m-d');
+    }
+
+    // 2) Tandai hari non-operasional (weekend/dll)
+    $nonOperationalDates = [];
+    foreach ($allDatesRaw as $tgl) {
+        $dayNum = date('N', strtotime($tgl)); // 1=Mon…7=Sun
+        if (!in_array($dayNum, $operationalDays)) {
+            $nonOperationalDates[] = $tgl;
         }
     }
-    
-    // Ambil tanggal libur (misalnya libur nasional) dari tabel hari_libur
-    // Query di-update untuk menyesuaikan range berdasarkan tanggal_mulai dan tanggal_selesai
-    $holidayDates = array();
-    $queryHolidayDates = "
-        SELECT tanggal_mulai, tanggal_selesai 
-        FROM hari_libur 
-        WHERE tanggal_mulai <= '$tanggalAkhir' 
+
+    // 3) Ambil holidays dari tabel hari_libur
+    $holidayDates = [];
+    $qHol = "
+        SELECT tanggal_mulai, tanggal_selesai
+        FROM hari_libur
+        WHERE tanggal_mulai <= '$tanggalAkhir'
           AND tanggal_selesai >= '$tanggalMulai'
     ";
-    $resultHolidayDates = $conn->query($queryHolidayDates);
-    if ($resultHolidayDates) {
-        while ($row = $resultHolidayDates->fetch_assoc()) {
-            // Tentukan batas periode libur yang tumpang tindih dengan rentang input
-            $liburMulai = max($tanggalMulai, $row['tanggal_mulai']);
-            $liburSelesai = min($tanggalAkhir, $row['tanggal_selesai']);
-            $periodHoliday = new DatePeriod(
-                new DateTime($liburMulai),
+    $rHol = $conn->query($qHol);
+    if ($rHol) {
+        while ($h = $rHol->fetch_assoc()) {
+            $m = max($tanggalMulai,   $h['tanggal_mulai']);
+            $s = min($tanggalAkhir,   $h['tanggal_selesai']);
+            $p = new DatePeriod(
+                new DateTime($m),
                 new DateInterval('P1D'),
-                (new DateTime($liburSelesai))->modify('+1 day')
+                (new DateTime($s))->modify('+1 day')
             );
-            foreach ($periodHoliday as $dtHoliday) {
-                $holidayDates[] = $dtHoliday->format('Y-m-d');
+            foreach ($p as $dtHol) {
+                $holidayDates[] = $dtHol->format('Y-m-d');
             }
         }
     }
-    
-    // Gabungkan tanggal non-operasional dan tanggal libur, buang duplikasi
-    $allHolidayDates = array_unique(array_merge($nonOperationalDates, $holidayDates));
+
+    // 4) Gabungkan dan unikkan
+    $allHolidayDates    = array_unique(array_merge($nonOperationalDates, $holidayDates));
     $totalHolidayUnique = count($allHolidayDates);
-    
-    // Hitung hari efektif (total hari dikurangi hari non-operasional & libur)
+
+    // 5) Bangun string untuk SQL exclude
+    if ($totalHolidayUnique > 0) {
+        $holidayIn = "'" . implode("','", $allHolidayDates) . "'";
+    }
+
+    // 6) Hitung hari efektif (operasional)
     $totalEffective = $totalDays - $totalHolidayUnique;
-}
 
-// --- Perhitungan hari efektif untuk perhitungan Alpa (dibatasi sampai hari ini) ---
-$totalEffectiveAlpa = 0;
-$today = date('Y-m-d');
-
-if (!empty($tanggalMulai) && !empty($tanggalAkhir)) {
-    // Batasi tanggal akhir untuk Alpa hingga hari ini jika $tanggalAkhir lebih besar dari hari ini
+    // --- Hitung Alpa sampai hari ini ---
     $tanggalAkhirAlpa = (strtotime($tanggalAkhir) > strtotime($today)) ? $today : $tanggalAkhir;
-    
     if (strtotime($tanggalAkhirAlpa) >= strtotime($tanggalMulai)) {
-        $totalDaysAlpa = (strtotime($tanggalAkhirAlpa) - strtotime($tanggalMulai)) / (60 * 60 * 24) + 1;
-        $allDatesAlpa = array();
-        $startAlpa = new DateTime($tanggalMulai);
-        $endAlpa   = new DateTime($tanggalAkhirAlpa);
-        $endAlpa->modify('+1 day');
-        $periodAlpa = new DatePeriod($startAlpa, $interval, $endAlpa);
-        foreach ($periodAlpa as $dtAlpa) {
-            $allDatesAlpa[] = $dtAlpa->format('Y-m-d');
-        }
-        
-        // Hari non-operasional untuk periode Alpa
-        $nonOpAlpa = array();
-        foreach ($allDatesAlpa as $tglA) {
-            $dayNumA = date('N', strtotime($tglA));
-            if (!in_array($dayNumA, $operationalDays)) {
+        $totalDaysAlpa = (strtotime($tanggalAkhirAlpa) - strtotime($tanggalMulai)) / 86400 + 1;
+
+        // Hari non-op mingguan Alpa
+        $nonOpAlpa = [];
+        $pAlpa     = new DatePeriod(
+            new DateTime($tanggalMulai),
+            new DateInterval('P1D'),
+            (new DateTime($tanggalAkhirAlpa))->modify('+1 day')
+        );
+        foreach ($pAlpa as $dtA) {
+            $tglA = $dtA->format('Y-m-d');
+            if (!in_array(date('N', strtotime($tglA)), $operationalDays)) {
                 $nonOpAlpa[] = $tglA;
             }
         }
-        
-        // Ambil tanggal libur (dengan range) untuk periode Alpa
-        $holidayAlpa = array();
-        $queryHolidayAlpa = "
-            SELECT tanggal_mulai, tanggal_selesai 
-            FROM hari_libur 
+
+        // Libur Alpa
+        $holidayAlpa = [];
+        $qHolA = "
+            SELECT tanggal_mulai, tanggal_selesai
+            FROM hari_libur
             WHERE tanggal_mulai <= '$tanggalAkhirAlpa'
               AND tanggal_selesai >= '$tanggalMulai'
         ";
-        $resultHolidayAlpa = $conn->query($queryHolidayAlpa);
-        if ($resultHolidayAlpa) {
-            while ($rowAlpa = $resultHolidayAlpa->fetch_assoc()) {
-                $liburMulaiAlpa = max($tanggalMulai, $rowAlpa['tanggal_mulai']);
-                $liburSelesaiAlpa = min($tanggalAkhirAlpa, $rowAlpa['tanggal_selesai']);
-                $periodHolidayAlpa = new DatePeriod(
-                    new DateTime($liburMulaiAlpa),
+        $rHolA = $conn->query($qHolA);
+        if ($rHolA) {
+            while ($ha = $rHolA->fetch_assoc()) {
+                $mA = max($tanggalMulai,   $ha['tanggal_mulai']);
+                $sA = min($tanggalAkhirAlpa,$ha['tanggal_selesai']);
+                $p2 = new DatePeriod(
+                    new DateTime($mA),
                     new DateInterval('P1D'),
-                    (new DateTime($liburSelesaiAlpa))->modify('+1 day')
+                    (new DateTime($sA))->modify('+1 day')
                 );
-                foreach ($periodHolidayAlpa as $dtHolAlpa) {
-                    $holidayAlpa[] = $dtHolAlpa->format('Y-m-d');
+                foreach ($p2 as $dt2) {
+                    $holidayAlpa[] = $dt2->format('Y-m-d');
                 }
             }
         }
-        
-        $allHolAlpa = array_unique(array_merge($nonOpAlpa, $holidayAlpa));
-        $totalHolAlpa = count($allHolAlpa);
-        $totalEffectiveAlpa = $totalDaysAlpa - $totalHolAlpa;
+
+        $allHolAlpa         = array_unique(array_merge($nonOpAlpa, $holidayAlpa));
+        $totalEffectiveAlpa = $totalDaysAlpa - count($allHolAlpa);
     }
 }
 
-// Query rekap presensi dengan perhitungan hari efektif (Alpa & Persentase)
-$sql = "SELECT  
-            s.nis, 
-            s.nama, 
-            s.id_kelas,
-            k.nama_kelas,
-            COUNT(DISTINCT CASE WHEN p.status = 'Hadir' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_hadir,
-            COUNT(DISTINCT CASE WHEN p.status = 'Izin' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_izin,
-            COUNT(DISTINCT CASE WHEN p.status = 'Sakit' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_sakit,
-            COUNT(DISTINCT CASE 
-                WHEN p.status = 'Masuk' 
-                     AND (p.waktu_keluar IS NULL OR p.waktu_keluar = '') 
-                     AND p.tanggal < CURDATE() 
-                THEN p.tanggal 
-            END) AS total_bolos,
-            (
-              $totalEffectiveAlpa
-              - (
-                  COUNT(DISTINCT CASE WHEN p.status IN ('Hadir','Izin','Sakit') AND p.tanggal <= CURDATE() THEN p.tanggal END)
-                  +
-                  COUNT(DISTINCT CASE 
-                      WHEN p.status = 'Masuk' 
-                           AND (p.waktu_keluar IS NULL OR p.waktu_keluar = '') 
-                           AND p.tanggal < CURDATE() 
-                      THEN p.tanggal 
-                  END)
-              )
-            ) AS total_alpa,
-            COUNT(DISTINCT CASE WHEN p.waktu_masuk > '$jam_batas' AND p.tanggal <= CURDATE() THEN p.tanggal END) AS total_terlambat,
-            (COUNT(DISTINCT CASE WHEN p.status = 'Hadir' AND p.tanggal <= CURDATE() THEN p.tanggal END) / 
-              CASE WHEN $totalEffectiveAlpa > 0 THEN $totalEffectiveAlpa ELSE 1 END
-            ) * 100 AS persentase_kehadiran
-        FROM siswa s
-        LEFT JOIN presensi p 
-            ON s.no_rfid = p.no_rfid 
-            AND (p.tanggal BETWEEN '$tanggalMulai' AND '$tanggalAkhir')
-        LEFT JOIN kelas k 
-            ON s.id_kelas = k.id
-        WHERE 
-            s.status = 'Aktif'
-            AND ('$kelasFilter' = '' OR s.id_kelas = '$kelasFilter')
-        GROUP BY 
-            s.nis
-        ORDER BY 
-            s.nis ASC";
+// Query rekap presensi dengan pengecualian holiday/non-op
+$sql = "
+    SELECT  
+        s.nis,
+        s.nama,
+        s.id_kelas,
+        k.nama_kelas,
+        COUNT(DISTINCT CASE WHEN p.status='Hadir'  AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_hadir,
+        COUNT(DISTINCT CASE WHEN p.status='Izin'   AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_izin,
+        COUNT(DISTINCT CASE WHEN p.status='Sakit'  AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_sakit,
+        COUNT(DISTINCT CASE 
+            WHEN p.status='Masuk'
+                 AND (p.waktu_keluar='' OR p.waktu_keluar IS NULL)
+                 AND p.tanggal<CURDATE()
+            THEN p.tanggal END) AS total_bolos,
+        (
+          $totalEffectiveAlpa
+          - (
+              COUNT(DISTINCT CASE WHEN p.status IN ('Hadir','Izin','Sakit') AND p.tanggal<=CURDATE() THEN p.tanggal END)
+              +
+              COUNT(DISTINCT CASE 
+                  WHEN p.status='Masuk'
+                       AND (p.waktu_keluar='' OR p.waktu_keluar IS NULL)
+                       AND p.tanggal<CURDATE()
+                  THEN p.tanggal END)
+          )
+        ) AS total_alpa,
+        COUNT(DISTINCT CASE WHEN p.waktu_masuk>'$jam_batas' AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_terlambat,
+        (
+            COUNT(DISTINCT CASE WHEN p.status='Hadir' AND p.tanggal<=CURDATE() THEN p.tanggal END)
+            / CASE WHEN $totalEffectiveAlpa>0 THEN $totalEffectiveAlpa ELSE 1 END
+        ) * 100 AS persentase_kehadiran
+    FROM siswa s
+    LEFT JOIN presensi p
+      ON s.no_rfid=p.no_rfid
+     AND (p.tanggal BETWEEN '$tanggalMulai' AND '$tanggalAkhir')
+     AND p.tanggal NOT IN ($holidayIn)
+    LEFT JOIN kelas k ON s.id_kelas=k.id
+    WHERE s.status='Aktif'
+      AND ('$kelasFilter' = '' OR s.id_kelas='$kelasFilter')
+    GROUP BY s.nis
+    ORDER BY s.nis ASC
+";
 
 $result = $conn->query($sql);
 
-// Buat objek Spreadsheet baru
+// Buat objek Spreadsheet
 $spreadsheet = new Spreadsheet();
-$sheet = $spreadsheet->getActiveSheet();
+$sheet       = $spreadsheet->getActiveSheet();
 
-// Tentukan jumlah kolom header berdasarkan apakah kolom "Kelas" ditampilkan
-$columnsCount = ($kelasFilter == '') ? 11 : 10;  
+// Tentukan jumlah kolom header
+$columnsCount  = ($kelasFilter == '') ? 11 : 10;
 $lastColLetter = Coordinate::stringFromColumnIndex($columnsCount);
 
-// Set judul dokumen dan atur style judul
+// Judul dokumen
 $sheet->setCellValue('A1', 'Rekap Presensi Siswa SD Negeri Gemawang');
 $sheet->mergeCells("A1:{$lastColLetter}1");
 $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-$sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-$sheet->getStyle('A1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+$sheet->getStyle('A1')->getAlignment()
+      ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+      ->setVertical(Alignment::VERTICAL_CENTER);
 
-// Baris 2 sebagai spasi kosong
+// Spasi
 $sheet->setCellValue('A2', '');
 
-// Informasi Kelas dan Periode
-function getKelasNameHelper($conn, $idKelas) {
-    $sql = "SELECT nama_kelas FROM kelas WHERE id = '$idKelas'";
-    $result = $conn->query($sql);
-    if ($result && $result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        return $row['nama_kelas'];
-    }
-    return '';
+// Info Kelas & Periode
+function getKelasNameHelper($conn, $id) {
+    $r = $conn->query("SELECT nama_kelas FROM kelas WHERE id='$id'");
+    return ($r && $r->num_rows>0) ? $r->fetch_assoc()['nama_kelas'] : '';
 }
 $kelasLabel = $kelasFilter ? getKelasNameHelper($conn, $kelasFilter) : 'Semua Kelas';
 $sheet->setCellValue('A3', 'Kelas: ' . $kelasLabel);
@@ -256,90 +253,91 @@ if (!empty($tanggalMulai) && !empty($tanggalAkhir)) {
     $dataStartRow = 5;
 }
 
-// Header kolom untuk tabel
+// Header tabel
 $headerRow = $dataStartRow;
-$colIndex = 1;
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'No');
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'NIS');
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Nama');
-if ($kelasFilter == '') {
-    $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Kelas');
+$ci = 1;
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'No');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'NIS');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Nama');
+if ($kelasFilter=='') {
+    $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Kelas');
 }
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Hadir');
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Izin');
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Sakit');
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Alpa');
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Bolos');
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Terlambat');
-$sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $headerRow, 'Persentase');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Hadir');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Izin');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Sakit');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Alpa');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Bolos');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Terlambat');
+$sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $headerRow, 'Persentase');
 
-// Set style header tabel
-$lastColLetter = Coordinate::stringFromColumnIndex($colIndex - 1);
-$sheet->getStyle("A{$headerRow}:{$lastColLetter}{$headerRow}")
+// Style header
+$lastHeaderCol = Coordinate::stringFromColumnIndex($ci - 1);
+$sheet->getStyle("A{$headerRow}:{$lastHeaderCol}{$headerRow}")
       ->getFont()->setBold(true);
-$sheet->getStyle("A{$headerRow}:{$lastColLetter}{$headerRow}")
+$sheet->getStyle("A{$headerRow}:{$lastHeaderCol}{$headerRow}")
       ->getFill()->setFillType(Fill::FILL_SOLID)
       ->getStartColor()->setRGB('D3D3D3');
-$sheet->getStyle("A{$headerRow}:{$lastColLetter}{$headerRow}")
-      ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
+$sheet->getStyle("A{$headerRow}:{$lastHeaderCol}{$headerRow}")
+      ->getAlignment()
+      ->setHorizontal(Alignment::HORIZONTAL_CENTER)
       ->setVertical(Alignment::VERTICAL_CENTER);
 $sheet->getRowDimension($headerRow)->setRowHeight(20);
-$sheet->getStyle("A{$headerRow}:{$lastColLetter}{$headerRow}")
+$sheet->getStyle("A{$headerRow}:{$lastHeaderCol}{$headerRow}")
       ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
-// Isi data mulai dari baris setelah header tabel
+// Isi data
 $rowIndex = $dataStartRow + 1;
-$nomor = 1;
+$nomor    = 1;
 if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $colIndex = 1;
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $nomor);
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['nis']);
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['nama']);
-        if ($kelasFilter == '') {
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['nama_kelas']);
+    while ($r = $result->fetch_assoc()) {
+        $ci = 1;
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $nomor);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['nis']);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['nama']);
+        if ($kelasFilter=='') {
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['nama_kelas']);
         }
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['total_hadir']);
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['total_izin']);
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['total_sakit']);
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['total_alpa']);
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['total_bolos']);
-        $sheet->setCellValue(Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex, $row['total_terlambat']);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['total_hadir']);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['total_izin']);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['total_sakit']);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['total_alpa']);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['total_bolos']);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($ci++) . $rowIndex, $r['total_terlambat']);
         $sheet->setCellValue(
-            Coordinate::stringFromColumnIndex($colIndex++) . $rowIndex,
-            ($row['persentase_kehadiran'] == floor($row['persentase_kehadiran'])) 
-                ? number_format($row['persentase_kehadiran'], 0) . '%' 
-                : number_format($row['persentase_kehadiran'], 2) . '%'
-        );        
+            Coordinate::stringFromColumnIndex($ci++) . $rowIndex,
+            ($r['persentase_kehadiran'] == floor($r['persentase_kehadiran']))
+                ? number_format($r['persentase_kehadiran'],0).'%'
+                : number_format($r['persentase_kehadiran'],2).'%'
+        );
         $rowIndex++;
         $nomor++;
     }
 } else {
     $sheet->setCellValue("A{$rowIndex}", 'Tidak ada data yang ditemukan');
-    $sheet->mergeCells("A{$rowIndex}:{$lastColLetter}{$rowIndex}");
+    $sheet->mergeCells("A{$rowIndex}:{$lastHeaderCol}{$rowIndex}");
 }
 
-// Set border dan alignment untuk data
-$sheet->getStyle("A" . ($dataStartRow + 1) . ":{$lastColLetter}" . ($rowIndex - 1))
+// Border & alignment data
+$sheet->getStyle("A" . ($dataStartRow+1) . ":{$lastHeaderCol}" . ($rowIndex-1))
       ->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-foreach (range('A', $lastColLetter) as $colID) {
-    $sheet->getStyle($colID . ($dataStartRow + 1) . ":{$colID}" . ($rowIndex - 1))
-          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
+foreach (range('A', $lastHeaderCol) as $colID) {
+    $sheet->getStyle("{$colID}" . ($dataStartRow+1) . ":{$colID}" . ($rowIndex-1))
+          ->getAlignment()
+          ->setHorizontal(Alignment::HORIZONTAL_CENTER)
           ->setVertical(Alignment::VERTICAL_CENTER);
 }
 
-// Atur lebar kolom secara otomatis
-for ($col = 1; $col <= $colIndex - 1; $col++) {
+// Auto size kolom
+for ($col = 1; $col <= $ci-1; $col++) {
     $colLetter = Coordinate::stringFromColumnIndex($col);
     $sheet->getColumnDimension($colLetter)->setAutoSize(true);
 }
 
-// Header untuk mengunduh file Excel
+// Output header & file
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 header('Content-Disposition: attachment; filename="rekap_presensi.xlsx"');
 header('Cache-Control: max-age=0');
 
-// Tulis file Excel ke output
 $writer = new Xlsx($spreadsheet);
 $writer->save('php://output');
 
