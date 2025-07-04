@@ -6,10 +6,10 @@ hanyaAdmin();
 $response = array('success' => false, 'message' => '');
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $id_kelas = $conn->real_escape_string($_POST['id_kelas']);
+    $kelas_id = $conn->real_escape_string($_POST['kelas_id']);
 
-    if($id_kelas != ''){
-        $sql = "DELETE FROM kelas WHERE id='$id_kelas'";
+    if($kelas_id != ''){
+        $sql = "DELETE FROM kelas WHERE id='$kelas_id'";
         if($conn->query($sql)){
             $response['success'] = true;
             $response['message'] = "Kelas berhasil dihapus.";

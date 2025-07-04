@@ -37,7 +37,7 @@ if ($isAdmin) {
     $sqlKelas = "
       SELECT k.*
       FROM kelas k
-      JOIN guru g ON k.id_guru = g.id
+      JOIN guru g ON k.guru_id = g.id
       WHERE g.id = ? AND g.status = 'Aktif'
     ";
     $stmt = $conn->prepare($sqlKelas);
@@ -68,8 +68,8 @@ if ($filterAllAdmin || $filterAllGuru) {
 $sql = "
   SELECT siswa.*, kelas.nama_kelas
   FROM siswa
-  LEFT JOIN kelas ON siswa.id_kelas = kelas.id
-  LEFT JOIN guru ON kelas.id_guru = guru.id
+  LEFT JOIN kelas ON siswa.kelas_id = kelas.id
+  LEFT JOIN guru ON kelas.guru_id = guru.id
   WHERE 1=1
 ";
 $params    = [];
@@ -273,7 +273,7 @@ $stmt->close();
                         <td>{$row['no_rfid']}</td>
                         <td>{$row['nis']}</td>
                         <td>{$row['nama']}</td>
-                        <td>{$jenis_kelamin}</td>";
+                        <td>{$row['jenis_kelamin']}</td>";
                 
                 if ($kelasFilter == '') {
                   echo "<td>{$row['nama_kelas']}</td>";
@@ -460,7 +460,7 @@ function startEmbedding() {
   $("#alertContainer").show();
 
   $.ajax({
-    url: "http://localhost:5000/reembed_faces",
+    url: "http://192.168.121.177:5000/reembed_faces",
     type: "POST",
     success: function(response) {
       $("#alertContainer").html("<div class='alert alert-success text-center' role='alert'>" + response.message + "</div>");

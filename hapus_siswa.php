@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['id'])) {
         if ($conn->query($delete_sql) === TRUE) {
             // Panggil endpoint Flask untuk menghapus data wajah (opsional)
             $data = json_encode(["nis" => $nis]);
-            $ch = curl_init("http://localhost:5000/delete_face_data");
+            $ch = curl_init("http://192.168.121.177:5000/delete_face_data");
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data);

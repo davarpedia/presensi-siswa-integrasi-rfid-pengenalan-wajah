@@ -48,7 +48,7 @@ if (isset($_POST['ubah_password'])) {
             // Jika gagal, bisa juga set session alert error atau menampilkan error biasa
             $_SESSION['alert'] = [
                 'title' => 'Error',
-                'text'  => 'Gagal mengubah password! Silahkan coba lagi.',
+                'text'  => 'Gagal mengubah password! Silakan coba lagi.',
                 'icon'  => 'error'
             ];
             header('Location: ganti_password.php');

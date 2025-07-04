@@ -27,7 +27,7 @@ capture_mode = False             # True saat mode capture dataset aktif
 face_recognition_timer = None    # Variabel global untuk menyimpan timer
 
 # Untuk face recognition (dari WebSocket)
-# Sekarang 'frame' akan menyimpan tuple (timestamp, frame) atau None
+# Frame akan menyimpan tuple (timestamp, frame) atau None
 frame = None            
 annotated_frame = None  # Frame beranotasi
 display_frame = None    # Frame yang akan dikirim ke website
@@ -58,8 +58,8 @@ attendance_in_process = False
 status_lock = threading.Lock()
 
 # IP Address ESP32 dan ESP32-CAM
-ESP32_IP = "192.168.10.26:80"
-ESP32CAM_IP = "192.168.10.99:80"
+ESP32_IP = "192.168.121.26:80"
+ESP32CAM_IP = "192.168.121.99:80"
 
 #####################################
 # KONEKSI DATABASE MYSQL
@@ -103,7 +103,7 @@ def on_message(ws, message):
             frame = (current_time, new_frame)
 
 # URL server WebSocket ESP32-CAM
-ws_url = "ws://localhost:3001"  # Sesuaikan URL WebSocket Anda
+ws_url = "ws://localhost:3001"
 
 # Memulai klien WebSocket di thread terpisah
 def start_websocket():
@@ -325,6 +325,8 @@ def receive_rfid():
     siswa = cursor.fetchone()
 
     if siswa:
+        siswa_id = siswa['id']
+
         # Pemeriksaan status: hanya siswa dengan status 'Aktif' yang dapat presensi
         if siswa['status'] != 'Aktif':
             set_status("nonaktif")
@@ -334,7 +336,7 @@ def receive_rfid():
             return jsonify({"status": "423", "keterangan": "Siswa nonaktif!"})
             
         # Cek apakah siswa sudah melakukan presensi keluar hari ini
-        cursor.execute("SELECT * FROM presensi WHERE no_rfid = %s AND tanggal = %s AND waktu_keluar IS NOT NULL", (rfid, tanggal_hari_ini))
+        cursor.execute("SELECT * FROM presensi WHERE siswa_id = %s AND tanggal = %s AND waktu_keluar IS NOT NULL", (siswa_id, tanggal_hari_ini))
         presensi_keluar = cursor.fetchone()
 
         if presensi_keluar:
@@ -378,8 +380,8 @@ def receive_rfid():
             if face_recognition_timer is not None:
                 face_recognition_timer.cancel()
 
-            # Jalankan timer timeout face recognition (30 detik)
-            face_recognition_timer = threading.Timer(30, face_recognition_timeout)
+            # Jalankan timer timeout face recognition (20 detik)
+            face_recognition_timer = threading.Timer(500, face_recognition_timeout)
             face_recognition_timer.start()
 
             # Reset flag presensi agar tidak mengandung data lama
@@ -478,8 +480,8 @@ def record_attendance(rfid):
             attendance_in_process = False
             return
         
-        # Ambil NIS dan nama siswa berdasarkan RFID
-        cursor.execute("SELECT s.nis, s.nama, k.nama_kelas, s.alamat, s.token, s.id_chat FROM siswa s JOIN kelas k ON s.id_kelas = k.id WHERE s.no_rfid = %s", (rfid,))
+        # Ambil data siswa berdasarkan RFID
+        cursor.execute("SELECT s.id, s.nis, s.nama, k.nama_kelas, s.alamat, s.token, s.id_chat FROM siswa s JOIN kelas k ON s.kelas_id = k.id WHERE s.no_rfid = %s", (rfid,))
         result = cursor.fetchone()
         
         if not result:
@@ -487,7 +489,7 @@ def record_attendance(rfid):
             attendance_in_process = False
             return
         
-        nis, nama_siswa, kelas, alamat, token, chat_id = result
+        siswa_id, nis, nama_siswa, kelas, alamat, token, chat_id = result
         print(f"Pencocokan RFID berhasil untuk {nama_siswa} dengan RFID: {rfid}")
 
         tanggal_hari_ini = datetime.date.today()
@@ -511,8 +513,8 @@ def record_attendance(rfid):
         # Periksa apakah sudah ada presensi hari ini
         cursor.execute("""
             SELECT id, waktu_masuk, waktu_keluar FROM presensi 
-            WHERE no_rfid = %s AND tanggal = %s
-        """, (rfid, tanggal_hari_ini))
+            WHERE siswa_id = %s AND tanggal = %s
+        """, (siswa_id, tanggal_hari_ini))
         result = cursor.fetchone()
         
         if result:
@@ -620,15 +622,15 @@ def record_attendance(rfid):
             
             if foto_masuk:
                 cursor.execute("""
-                    INSERT INTO presensi (no_rfid, tanggal, waktu_masuk, foto_masuk, status) 
+                    INSERT INTO presensi (siswa_id, tanggal, waktu_masuk, foto_masuk, status) 
                     VALUES (%s, %s, %s, %s, 'Masuk')
-                """, (rfid, tanggal_hari_ini, waktu_sekarang, foto_masuk))
+                """, (siswa_id, tanggal_hari_ini, waktu_sekarang, foto_masuk))
                 print(f"Presensi masuk dicatat untuk {nama_siswa} pada {waktu_sekarang}.")
 
                 # Batalkan timer timeout setelah presensi sukses
                 if face_recognition_timer is not None:
                     face_recognition_timer.cancel()
-                    face_recognition_timer = None
+                    face_recognition_timer = None            
 
                 # Data JSON untuk dikirim ke ESP32
                 data = {
@@ -647,7 +649,7 @@ def record_attendance(rfid):
                     "waktu": waktu_sekarang,
                     "keterangan": keterangan_masuk,
                     "fotoMasuk": foto_masuk
-                })
+                }) 
 
                 message = (f"{keterangan_masuk_telegram}\n"
                            f"- Nama: {nama_siswa}\n"
@@ -777,7 +779,7 @@ def face_recognition_timeout():
         face_recognition_timer = None
     
     if face_recognition_active:
-        print("Timeout: Tidak ada wajah yang cocok dalam 30 detik.")
+        print("Timeout: Tidak ada wajah yang cocok dalam 20 detik.")
         set_status("failed_timeout")
         
         data = {
@@ -785,7 +787,7 @@ def face_recognition_timeout():
             "jenisPresensi": "Presensi Gagal",
             "nama": "-",
             "waktu": "-",
-            "keterangan": "Timeout: Tidak ada wajah yang cocok dalam 30 detik."
+            "keterangan": "Timeout: Tidak ada wajah yang cocok dalam 20 detik."
         }
         try:
             send_attendance_data_to_esp32(data)
@@ -850,11 +852,11 @@ def face_recognition():
             nis_list, names, rfids, similarity_percentages = recognize_faces(
                 np.array(known_face_embeddings), known_face_nis, known_face_names, known_face_rfids, test_face_embeddings
             )
-            for rfid in rfids:
-                if rfid != "Unknown":
-                    if not attendance_in_process:
-                        attendance_in_process = True
-                        record_attendance(rfid)
+            # for rfid in rfids:
+            #     if rfid != "Unknown":
+            #         if not attendance_in_process:
+            #             attendance_in_process = True
+            #             record_attendance(rfid)
         else:
             names = ['Unknown'] * len(test_face_embeddings)
             rfids = ['Unknown'] * len(test_face_embeddings)
@@ -876,7 +878,7 @@ def face_recognition():
                     else:
                         color = (0, 0, 255)
                         text = f"{name} ({similarity:.2f}%)"
-                        rfid_warning = "RFID tidak cocok"  
+                        rfid_warning = "Tidak Cocok"  
                     
                     # Gambar kotak wajah
                     cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
@@ -885,7 +887,7 @@ def face_recognition():
                     cv2.putText(annotated_frame, text, (x1, y1 - 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
                     
-                    # Jika RFID tidak cocok, tambahkan teks "RFID tidak cocok" di bawah kotak wajah
+                    # Jika RFID tidak cocok, tambahkan teks "Tidak Cocok" di bawah kotak wajah
                     if name != "Unknown" and rfid != tmp_rfid:
                         cv2.putText(annotated_frame, rfid_warning, (x1, y2 + 30),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
@@ -1226,4 +1228,9 @@ def delete_face_data():
 # Menjalankan Server Flask
 #####################################
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Untuk pengembangan (debug aktif dan auto-reload):
+    # app.run(host='0.0.0.0', port=5000, debug=True)
+
+    # Untuk penggunaan normal (tanpa debug dan tanpa auto-restart):
+    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+

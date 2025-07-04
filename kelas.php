@@ -10,17 +10,17 @@ include 'topbar.php';
 // Ambil data kelas beserta nama guru melalui LEFT JOIN untuk memastikan kelas tetap tampil walaupun guru sudah dihapus
 $sql = "SELECT kelas.nama_kelas, 
                IFNULL(pengguna.nama, '-') AS nama_guru, 
-               kelas.id AS id_kelas, 
-               kelas.id_guru 
+               kelas.id AS kelas_id, 
+               kelas.guru_id 
         FROM kelas 
-        LEFT JOIN guru ON kelas.id_guru = guru.id 
-        LEFT JOIN pengguna ON guru.id_pengguna = pengguna.id";
+        LEFT JOIN guru ON kelas.guru_id = guru.id 
+        LEFT JOIN pengguna ON guru.pengguna_id = pengguna.id";
 $result = $conn->query($sql);
 
 // Ambil list guru untuk dropdown di modal tambah/edit
-$sqlGuru = "SELECT guru.id AS id_guru, pengguna.nama 
+$sqlGuru = "SELECT guru.id AS guru_id, pengguna.nama 
             FROM guru 
-            JOIN pengguna ON guru.id_pengguna = pengguna.id";
+            JOIN pengguna ON guru.pengguna_id = pengguna.id";
 $resultGuru = $conn->query($sqlGuru);
 $guruList = [];
 if ($resultGuru->num_rows > 0) {
@@ -78,14 +78,14 @@ if ($resultGuru->num_rows > 0) {
                             <td class='text-center'>{$row['nama_guru']}</td>
                             <td class='aksi-btn text-center'>
                               <button class='btn btn-warning btn-sm btn-edit' 
-                                      data-id='{$row['id_kelas']}' 
+                                      data-id='{$row['kelas_id']}' 
                                       data-nama_kelas='{$row['nama_kelas']}' 
-                                      data-id_guru='{$row['id_guru']}' 
+                                      data-guru_id='{$row['guru_id']}' 
                                       title='Edit'>
                                 <i class='bi bi-pencil-fill'></i>
                               </button>
                               <button class='btn btn-danger btn-sm btn-delete' 
-                                      data-id='{$row['id_kelas']}' 
+                                      data-id='{$row['kelas_id']}' 
                                       data-toggle='modal' 
                                       data-target='#deleteKelasModal' 
                                       title='Hapus'>
@@ -131,10 +131,10 @@ include 'footer.php';
           </div>
           <div class="form-group">
             <label for="idGuruTambah">Guru</label>
-            <select class="custom-select" id="idGuruTambah" name="id_guru" required>
+            <select class="custom-select" id="idGuruTambah" name="guru_id" required>
               <option value="">Pilih Guru</option>
               <?php foreach ($guruList as $guru): ?>
-                <option value="<?= $guru['id_guru'] ?>"><?= $guru['nama'] ?></option>
+                <option value="<?= $guru['guru_id'] ?>"><?= $guru['nama'] ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -161,17 +161,17 @@ include 'footer.php';
         </div>
         <div class="modal-body">
           <div id="alertEdit"></div>
-          <input type="hidden" id="idKelasEdit" name="id_kelas">
+          <input type="hidden" id="idKelasEdit" name="kelas_id">
           <div class="form-group">
             <label for="namaKelasEdit">Nama Kelas</label>
             <input type="text" class="form-control" id="namaKelasEdit" name="nama_kelas" required>
           </div>
           <div class="form-group">
             <label for="idGuruEdit">Guru</label>
-            <select class="custom-select" id="idGuruEdit" name="id_guru" required>
+            <select class="custom-select" id="idGuruEdit" name="guru_id" required>
               <option value="">Pilih Guru</option>
               <?php foreach ($guruList as $guru): ?>
-                <option value="<?= $guru['id_guru'] ?>"><?= $guru['nama'] ?></option>
+                <option value="<?= $guru['guru_id'] ?>"><?= $guru['nama'] ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -241,7 +241,7 @@ $(document).ready(function() {
     $(".btn-edit").click(function(){
         $("#idKelasEdit").val($(this).data("id"));
         $("#namaKelasEdit").val($(this).data("nama_kelas"));
-        $("#idGuruEdit").val($(this).data("id_guru"));
+        $("#idGuruEdit").val($(this).data("guru_id"));
         $("#editKelasModal").modal("show");
     });
     $("#formEditKelas").submit(function(e){
@@ -264,7 +264,7 @@ $(document).ready(function() {
         deleteId = $(this).data("id");
     });
     $("#confirmDeleteBtn").click(function(){
-        $.post("hapus_kelas.php", {id_kelas: deleteId}, function(res){
+        $.post("hapus_kelas.php", {kelas_id: deleteId}, function(res){
             var body = $("#deleteKelasModal .modal-body");
             if(res.success){
                 body.html("<div class='alert alert-success'>"+res.message+"</div>");

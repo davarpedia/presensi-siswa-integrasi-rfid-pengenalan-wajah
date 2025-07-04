@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
 
             if (password_verify($password, $hashed_password)) {
                 if (strtolower($user_status) !== 'aktif') {
-                    $err = "Akun Anda saat ini nonaktif! Silahkan hubungi administrator untuk mengaktifkannya kembali.";
+                    $err = "Akun Anda saat ini nonaktif! Silakan hubungi administrator untuk mengaktifkannya kembali.";
                 } else {
                     // Simpan informasi ke dalam session
                     $_SESSION['session_id']    = $user_id;
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
 
                     // Jika user adalah Guru, cek data di tabel guru
                     if ($_SESSION['session_level'] === 'guru') {
-                        $stmtGuru = $conn->prepare("SELECT id FROM guru WHERE id_pengguna = ?");
+                        $stmtGuru = $conn->prepare("SELECT id FROM guru WHERE pengguna_id = ?");
                         $stmtGuru->bind_param("i", $user_id);
                         $stmtGuru->execute();
                         $stmtGuru->store_result();
@@ -79,10 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
                     exit();
                 }
             } else {
-                $err = "Email atau password salah!";
+                $err = "Email atau password tidak sesuai!";
             }
         } else {
-            $err = "Email tidak terdaftar!";
+            $err = "Email atau password tidak sesuai!";
         }
         $stmt->close();
     }

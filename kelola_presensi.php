@@ -4,12 +4,12 @@ require_once 'autentikasi.php';
 
 // Endpoint update status via AJAX (tetap sama)
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_update_status'])) {
-    $no_rfid = $conn->real_escape_string($_POST['no_rfid']);
+    $siswa_id = intval($_POST['siswa_id']);
     $status  = $conn->real_escape_string($_POST['status']);
     $tanggal = $conn->real_escape_string($_POST['tanggal']);
 
-    // Cek apakah data presensi untuk no_rfid dan tanggal tersebut sudah ada
-    $checkQuery = "SELECT id, status, waktu_masuk, waktu_keluar FROM presensi WHERE no_rfid = '$no_rfid' AND tanggal = '$tanggal'";
+    // Cek apakah data presensi untuk siswa_id dan tanggal tersebut sudah ada
+    $checkQuery = "SELECT id, status, waktu_masuk, waktu_keluar FROM presensi WHERE siswa_id = $siswa_id AND tanggal = '$tanggal'";
     $resultCheck = $conn->query($checkQuery);
 
     if ($resultCheck->num_rows > 0) {
@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_update_status']))
 
         // Jika sudah ada data waktu yang valid, update hanya status saja
         if ($hasValidMasuk || $hasValidKeluar) {
-            $updateSql = "UPDATE presensi SET status = '$status' WHERE no_rfid = '$no_rfid' AND tanggal = '$tanggal'";
+            $updateSql = "UPDATE presensi SET status = '$status' WHERE siswa_id = $siswa_id AND tanggal = '$tanggal'";
         } else {
             // Jika data belum ada, update dengan reset untuk status manual
             if (in_array($status, ['Izin', 'Sakit', 'Alpa'])) {
@@ -31,9 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_update_status']))
                                   foto_masuk = '', 
                                   waktu_keluar = NULL, 
                                   foto_keluar = '' 
-                              WHERE no_rfid = '$no_rfid' AND tanggal = '$tanggal'";
+                              WHERE siswa_id = $siswa_id AND tanggal = '$tanggal'";
             } else {
-                $updateSql = "UPDATE presensi SET status = '$status' WHERE no_rfid = '$no_rfid' AND tanggal = '$tanggal'";
+                $updateSql = "UPDATE presensi SET status = '$status' WHERE siswa_id = $siswa_id AND tanggal = '$tanggal'";
             }
         }
         
@@ -46,11 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_update_status']))
     } else {
         // Jika data belum ada, lakukan INSERT dengan menggunakan tanggal yang dikelola
         if (in_array($status, ['Izin', 'Sakit', 'Alpa'])) {
-            $insertSql = "INSERT INTO presensi (no_rfid, tanggal, status, waktu_masuk, foto_masuk, waktu_keluar, foto_keluar) 
-                          VALUES ('$no_rfid', '$tanggal', '$status', NULL, '', NULL, '')";
+            $insertSql = "INSERT INTO presensi (siswa_id, tanggal, status, waktu_masuk, foto_masuk, waktu_keluar, foto_keluar) 
+                          VALUES ($siswa_id, '$tanggal', '$status', NULL, '', NULL, '')";
         } else {
-            $insertSql = "INSERT INTO presensi (no_rfid, tanggal, status) 
-                          VALUES ('$no_rfid', '$tanggal', '$status')";
+            $insertSql = "INSERT INTO presensi (siswa_id, tanggal, status) 
+                          VALUES ($siswa_id, '$tanggal', '$status')";
         }
         if ($conn->query($insertSql) === TRUE) {
             echo json_encode(['success' => true, 'message' => 'Status presensi berhasil disimpan']);
@@ -127,7 +127,7 @@ if ($isAdmin) {
 } else {
     $guruId = $_SESSION['guru_id'] ?? null;
     $sqlKelas = "SELECT k.* FROM kelas k 
-                 JOIN guru g ON k.id_guru = g.id 
+                 JOIN guru g ON k.guru_id = g.id 
                  WHERE g.id = ? AND g.status = 'Aktif'
                  ORDER BY k.nama_kelas ASC";
     $stmt = $conn->prepare($sqlKelas);
@@ -144,11 +144,11 @@ if ($isAdmin) {
 // Query dieksekusi hanya jika tanggal dipilih.
 // Bagi Guru, jika kelas belum dipilih, kunci query dengan kondisi agar tidak mengembalikan data.
 if (!empty($tanggalFilter)) {
-    $sql = "SELECT s.nis, s.no_rfid, s.nama, s.foto_siswa, s.id_kelas, k.nama_kelas, 
+    $sql = "SELECT s.nis, s.id AS siswa_id, s.nama, s.foto_siswa, s.kelas_id, k.nama_kelas, 
                 p.tanggal, p.waktu_masuk, p.foto_masuk, p.waktu_keluar, p.foto_keluar, p.status 
             FROM siswa s
-            LEFT JOIN presensi p ON s.no_rfid = p.no_rfid AND p.tanggal = '$tanggalFilter'
-            LEFT JOIN kelas k ON s.id_kelas = k.id
+            LEFT JOIN presensi p ON s.id = p.siswa_id AND p.tanggal = '$tanggalFilter'
+            LEFT JOIN kelas k ON s.kelas_id = k.id
             WHERE s.status = 'Aktif'";
     if (!empty($kelasFilter)) {
         $sql .= " AND k.nama_kelas = '$kelasFilter'";
@@ -182,10 +182,10 @@ if (!empty($tanggalFilter)) {
   <?php 
   // Jika level Guru dan (kelas atau tanggal belum dipilih), tampilkan instruksi
   if (!$isAdmin && (empty($kelasFilter) || empty($tanggalFilter))) { 
-      echo '<p class="mb-4">Silahkan pilih kelas dan tanggal yang ingin ditampilkan.</p>';
+      echo '<p class="mb-4">Silakan pilih kelas dan tanggal yang ingin ditampilkan.</p>';
   } elseif (empty($tanggalFilter)) {
       // Untuk Admin hanya tampilkan instruksi bila tanggal belum dipilih
-      echo '<p class="mb-4">Silahkan pilih kelas dan tanggal yang ingin ditampilkan.</p>';
+      echo '<p class="mb-4">Silakan pilih kelas dan tanggal yang ingin ditampilkan.</p>';
   }
   ?>
 
@@ -260,7 +260,7 @@ if (!empty($tanggalFilter)) {
                   if ($result && $result->num_rows > 0) {
                       while ($row = $result->fetch_assoc()) {
                           $nis = $row['nis'];
-                          $no_rfid = $row['no_rfid'];
+                          $siswa_id = $row['siswa_id'];
                           $status = !empty($row['status']) ? $row['status'] : 'Alpa';
                           $waktuMasuk = $row['waktu_masuk'];
                           $waktuKeluar = $row['waktu_keluar'];
@@ -298,8 +298,8 @@ if (!empty($tanggalFilter)) {
                                   <td>{$waktuKeluar}</td>
                                   <td>{$foto_keluar}</td>
                                   <td>
-                                    <input type='hidden' class='no_rfid-hidden' value='{$no_rfid}'>
-                                    <select name='status' class='custom-select w-auto status-dropdown' data-no_rfid='{$no_rfid}'>
+                                    <input type='hidden' class='siswa_id-hidden' value='{$siswa_id}'>
+                                    <select name='status' class='custom-select w-auto status-dropdown' data-siswa_id='{$siswa_id}'>
                                       <option value='Masuk' " . ($status == 'Masuk' ? 'selected' : '') . ">Masuk</option>
                                       <option value='Hadir' " . ($status == 'Hadir' ? 'selected' : '') . ">Hadir</option>
                                       <option value='Izin' " . ($status == 'Izin' ? 'selected' : '') . ">Izin</option>
@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const statusDropdowns = document.querySelectorAll('.status-dropdown');
     statusDropdowns.forEach(function (dropdown) {
         dropdown.addEventListener('change', function () {
-            const no_rfid = this.getAttribute('data-no_rfid');
+            const siswa_id = this.getAttribute('data-siswa_id');
             const status = this.value;
             const tanggal = document.getElementById('filterTanggal').value;
             if (!tanggal) {
@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 body: new URLSearchParams({
                     ajax_update_status: true,
-                    no_rfid: no_rfid,
+                    siswa_id: siswa_id,
                     status: status,
                     tanggal: tanggal
                 })
@@ -423,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function () {
         Swal.fire({
           icon: 'warning',
           title: 'Peringatan',
-          text: 'Silahkan pilih kelas dan tanggal yang ingin ditampilkan!',
+          text: 'Silakan pilih kelas dan tanggal yang ingin ditampilkan!',
           confirmButtonText: 'OK',
           customClass: {
             confirmButton: 'btn btn-primary'
@@ -437,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function () {
         Swal.fire({
           icon: 'warning',
           title: 'Peringatan',
-          text: 'Silahkan pilih tanggal yang ingin ditampilkan!',
+          text: 'Silakan pilih tanggal yang ingin ditampilkan!',
           confirmButtonText: 'OK',
           customClass: {
             confirmButton: 'btn btn-primary'

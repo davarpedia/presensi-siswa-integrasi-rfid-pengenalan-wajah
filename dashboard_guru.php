@@ -6,7 +6,7 @@ require_once 'autentikasi.php';
 $guru_id = $_SESSION['guru_id'];
 
 // Total Kelas yang Diampu
-$sqlKelas = "SELECT COUNT(*) AS total FROM kelas WHERE id_guru = '$guru_id'";
+$sqlKelas = "SELECT COUNT(*) AS total FROM kelas WHERE guru_id = '$guru_id'";
 $resultKelas = mysqli_query($conn, $sqlKelas);
 $rowKelas = mysqli_fetch_assoc($resultKelas);
 $totalKelasDiampu = $rowKelas['total'];
@@ -15,8 +15,8 @@ $totalKelasDiampu = $rowKelas['total'];
 $sqlSiswa = "
   SELECT COUNT(*) AS total
   FROM siswa s
-  JOIN kelas k ON s.id_kelas = k.id
-  WHERE k.id_guru = '$guru_id'
+  JOIN kelas k ON s.kelas_id = k.id
+  WHERE k.guru_id = '$guru_id'
     AND s.status = 'Aktif'
 ";
 $resultSiswa = mysqli_query($conn, $sqlSiswa);
@@ -30,9 +30,9 @@ $tglHariIni = date("Y-m-d");
 $sqlHadir = "
   SELECT COUNT(*) AS total
   FROM presensi p
-  JOIN siswa s ON p.no_rfid = s.no_rfid
-  JOIN kelas k ON s.id_kelas = k.id
-  WHERE k.id_guru = '$guru_id'
+  JOIN siswa s ON p.siswa_id = s.id
+  JOIN kelas k ON s.kelas_id = k.id
+  WHERE k.guru_id = '$guru_id'
     AND p.tanggal = '$tglHariIni'
     AND p.status = 'Hadir'
     AND s.status = 'Aktif'
@@ -54,9 +54,9 @@ $jamMasuk = $rowPengaturan['jam_masuk'];
 $sqlTerlambat = "
   SELECT COUNT(*) AS total
   FROM presensi p
-  JOIN siswa s ON p.no_rfid = s.no_rfid
-  JOIN kelas k ON s.id_kelas = k.id
-  WHERE k.id_guru = '$guru_id'
+  JOIN siswa s ON p.siswa_id = s.id
+  JOIN kelas k ON s.kelas_id = k.id
+  WHERE k.guru_id = '$guru_id'
     AND p.tanggal = '$tglHariIni'
     AND p.waktu_masuk > '$jamMasuk'
     AND s.status = 'Aktif'
@@ -77,7 +77,7 @@ $persentase = ($persentase == floor($persentase))
 $sqlAllKelas = "
   SELECT id, nama_kelas 
   FROM kelas 
-  WHERE id_guru = '$guru_id'
+  WHERE guru_id = '$guru_id'
 ";
 $resultAllKelas = mysqli_query($conn, $sqlAllKelas);
 $kelasAttendance = [];
@@ -88,7 +88,7 @@ while($kelas = mysqli_fetch_assoc($resultAllKelas)) {
     $sqlTot = "
       SELECT COUNT(*) AS total 
       FROM siswa 
-      WHERE id_kelas = '$idKelas' 
+      WHERE kelas_id = '$idKelas' 
         AND status = 'Aktif'
     ";
     $rTot = mysqli_query($conn, $sqlTot);
@@ -98,8 +98,8 @@ while($kelas = mysqli_fetch_assoc($resultAllKelas)) {
     $sqlHd = "
       SELECT COUNT(*) AS hadir
       FROM presensi p
-      JOIN siswa s ON p.no_rfid = s.no_rfid
-      WHERE s.id_kelas = '$idKelas'
+      JOIN siswa s ON p.siswa_id = s.id
+      WHERE s.kelas_id = '$idKelas'
         AND p.tanggal = '$tglHariIni'
         AND p.status = 'Hadir'
         AND s.status = 'Aktif'
@@ -119,9 +119,9 @@ while($kelas = mysqli_fetch_assoc($resultAllKelas)) {
 $sqlPresensi = "
   SELECT p.tanggal, s.nis, s.nama, k.nama_kelas, p.status
   FROM presensi p
-  JOIN siswa s ON p.no_rfid = s.no_rfid
-  JOIN kelas k ON s.id_kelas = k.id
-  WHERE k.id_guru = '$guru_id'
+  JOIN siswa s ON p.siswa_id = s.id
+  JOIN kelas k ON s.kelas_id = k.id
+  WHERE k.guru_id = '$guru_id'
     AND s.status = 'Aktif'
   ORDER BY p.tanggal DESC, p.waktu_masuk DESC
   LIMIT 10

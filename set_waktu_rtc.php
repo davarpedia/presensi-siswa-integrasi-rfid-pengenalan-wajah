@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['waktu_rtc'])) {
         $formatted_rtc = $waktu_rtc;
 
         // IP address ESP32
-        $esp32_ip = '192.168.10.26';
+        $esp32_ip = '192.168.121.26';
         $url = "http://$esp32_ip:80/set-rtc";
 
         // Kirim permintaan ke ESP32 menggunakan cURL dengan metode POST

@@ -3,24 +3,39 @@ require_once 'koneksi.php';
 require_once 'autentikasi.php';
 hanyaAdmin();
 
-$response = array('success' => false, 'message' => '');
+$response = ['success' => false, 'message' => ''];
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $nama_kelas = $conn->real_escape_string($_POST['nama_kelas']);
-    $id_guru = $conn->real_escape_string($_POST['id_guru']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nama_kelas = trim($conn->real_escape_string($_POST['nama_kelas']));
+    $guru_id    = trim($conn->real_escape_string($_POST['guru_id']));
 
-    if($nama_kelas != '' && $id_guru != ''){
-        $sql = "INSERT INTO kelas (nama_kelas, id_guru) VALUES ('$nama_kelas', '$id_guru')";
-        if($conn->query($sql)){
-            $response['success'] = true;
-            $response['message'] = "Kelas berhasil ditambahkan.";
-        } else {
-            $response['message'] = "Gagal menambahkan kelas: " . $conn->error;
-        }
+    if ($nama_kelas === '' || $guru_id === '') {
+        $response['message'] = "Semua field harus diisi!";
     } else {
-        $response['message'] = "Semua field harus diisi.";
+        // Cek duplikat nama_kelas
+        $cek = $conn->prepare("SELECT COUNT(*) FROM kelas WHERE nama_kelas = ?");
+        $cek->bind_param("s", $nama_kelas);
+        $cek->execute();
+        $cek->bind_result($count);
+        $cek->fetch();
+        $cek->close();
+
+        if ($count > 0) {
+            $response['message'] = "Nama kelas “{$nama_kelas}” sudah ada. Silakan gunakan nama lain!";
+        } else {
+            // Insert
+            $ins = $conn->prepare("INSERT INTO kelas (nama_kelas, guru_id) VALUES (?, ?)");
+            $ins->bind_param("si", $nama_kelas, $guru_id);
+            if ($ins->execute()) {
+                $response['success'] = true;
+                $response['message'] = "Kelas berhasil ditambahkan.";
+            } else {
+                $response['message'] = "Gagal menambahkan kelas: " . $ins->error;
+            }
+            $ins->close();
+        }
     }
 }
+
 $conn->close();
 echo json_encode($response);
-?>

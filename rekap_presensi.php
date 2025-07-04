@@ -115,7 +115,7 @@ if ($isAdmin) {
     $stmt = $conn->prepare("
         SELECT k.* 
         FROM kelas k
-        JOIN guru g ON k.id_guru = g.id
+        JOIN guru g ON k.guru_id = g.id
         WHERE g.id = ? AND g.status = 'Aktif'
         ORDER BY k.nama_kelas ASC
     ");
@@ -130,14 +130,14 @@ if ($isAdmin) {
 
 // Siapkan klausa filter kelas
 if ($isAdmin) {
-    $kelasClause = "('$kelasFilter' = '' OR s.id_kelas = '$kelasFilter')";
+    $kelasClause = "('$kelasFilter' = '' OR s.kelas_id = '$kelasFilter')";
 } else {
     $kelasClause = $kelasFilter 
-                 ? "s.id_kelas = '$kelasFilter'" 
+                 ? "s.kelas_id = '$kelasFilter'" 
                  : "1=0";
 }
 
-// Query rekap ringkasan
+// Query rekap presensi
 if ($tanggalMulai && $tanggalAkhir) {
     $sqlRekap = "
     SELECT
@@ -179,14 +179,14 @@ if ($tanggalMulai && $tanggalAkhir) {
 
     FROM siswa s
     LEFT JOIN presensi p
-      ON s.no_rfid = p.no_rfid
+      ON s.id = p.siswa_id
      AND p.tanggal BETWEEN '$tanggalMulai' AND '$tanggalAkhir'
      /* <-- EXCLUDE HARI LIBUR/NON-OP */
      AND p.tanggal NOT IN ({$holidayIn})
-    LEFT JOIN kelas k ON s.id_kelas = k.id
+    LEFT JOIN kelas k ON s.kelas_id = k.id
     WHERE s.status='Aktif'
       AND {$kelasClause}
-    GROUP BY s.nis
+    GROUP BY s.nis, s.nama, k.nama_kelas
     ORDER BY s.nis ASC
     ";
     $resultRekap = $conn->query($sqlRekap);
@@ -208,7 +208,7 @@ if ($tanggalMulai && $tanggalAkhir) {
 $sqlSiswa = "
   SELECT s.nis, s.nama, k.nama_kelas
   FROM siswa s
-  LEFT JOIN kelas k ON s.id_kelas = k.id
+  LEFT JOIN kelas k ON s.kelas_id = k.id
   WHERE s.status='Aktif'
     AND {$kelasClause}
   ORDER BY s.nis ASC
@@ -235,7 +235,7 @@ $resultSiswa = $conn->query($sqlSiswa);
 
   <!-- Instruksi di bawah judul (muncul 1x saja) -->
   <?php if (empty($tanggalMulai) || empty($tanggalAkhir)): ?>
-    <p class="mb-4">Silahkan pilih kelas dan tanggal yang ingin ditampilkan.</p>
+    <p class="mb-4">Silakan pilih kelas dan tanggal yang ingin ditampilkan.</p>
   <?php endif; ?>
 
   <!-- Form Filter -->
@@ -314,10 +314,10 @@ $resultSiswa = $conn->query($sqlSiswa);
     </div>
   </div>
 
-  <!-- Card Ringkasan Rekap -->
+  <!-- Card Rekap Presensi -->
   <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <h6 class="card-title mb-0 font-weight-bold text-primary">Ringkasan</h6>
+      <h6 class="card-title mb-0 font-weight-bold text-primary">Rekap Presensi</h6>
       <div>
         <form method="GET" action="download_pdf.php" class="d-inline">
           <input type="hidden" name="kelas" value="<?= htmlspecialchars($kelasFilter) ?>">
@@ -328,7 +328,7 @@ $resultSiswa = $conn->query($sqlSiswa);
             <span class="d-none d-lg-inline">Download </span>PDF
           </button>
         </form>
-        <form method="GET" action="download_excel_ringkasan.php" class="d-inline">
+        <form method="GET" action="download_excel_rekap.php" class="d-inline">
           <input type="hidden" name="kelas" value="<?= htmlspecialchars($kelasFilter) ?>">
           <input type="hidden" name="tanggal_mulai" value="<?= htmlspecialchars($tanggalMulai) ?>">
           <input type="hidden" name="tanggal_akhir" value="<?= htmlspecialchars($tanggalAkhir) ?>">
@@ -464,7 +464,7 @@ $resultSiswa = $conn->query($sqlSiswa);
                                       ELSE p.status
                                   END AS status_singkat
                               FROM presensi p
-                              JOIN siswa s2 ON s2.no_rfid = p.no_rfid
+                              JOIN siswa s2 ON s2.id = p.siswa_id
                               WHERE s2.nis = '{$rowS['nis']}'
                               AND p.tanggal = '$tgl'
                               LIMIT 1
@@ -619,7 +619,7 @@ $(document).ready(function() {
         Swal.fire({
           icon: 'warning',
           title: 'Peringatan',
-          text: 'Silahkan pilih kelas dan tanggal yang ingin ditampilkan!',
+          text: 'Silakan pilih kelas dan tanggal yang ingin ditampilkan!',
           confirmButtonText: 'OK',
           customClass: {
             confirmButton: 'btn btn-primary'

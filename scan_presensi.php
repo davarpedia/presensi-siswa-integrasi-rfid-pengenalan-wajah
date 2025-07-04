@@ -67,7 +67,7 @@
 
   <!-- Teks instruksi awal -->
   <h5 id="displayText" class="alert alert-secondary text-center font-weight-bold mb-0">
-    Silahkan Tap Kartu RFID Untuk Melakukan Presensi
+    Silakan Tap Kartu RFID Untuk Melakukan Presensi
   </h5>
   
   <!-- Alert untuk presensi berhasil -->
@@ -162,8 +162,8 @@
   const resultContainer     = document.getElementById("resultContainer");
   const presensiInfo        = document.getElementById("presensiInfo");
 
-  const videoURL = 'http://192.168.10.177:5000/video_feed';
-  const statusURL = 'http://192.168.10.177:5000/get_status';
+  const videoURL = 'http://192.168.121.177:5000/video_feed';
+  const statusURL = 'http://192.168.121.177:5000/get_status';
 
   function updateUI(status, data = {}) {
     // Sembunyikan semua elemen terlebih dahulu
@@ -177,7 +177,7 @@
 
     if (status === "waiting") {
       displayText.style.display = "block";
-      displayText.innerHTML = "Silahkan Tap Kartu RFID Untuk Melakukan Presensi";
+      displayText.innerHTML = "Silakan Tap Kartu RFID Untuk Melakukan Presensi";
       animasiTapRFID.style.display = "block";
     } else if (status === "scanning") {
       displayText.style.display = "block";
@@ -278,7 +278,7 @@
       resultContainer.style.display = "block";
     } else if (status === "failed_timeout") {
       displayTextFailed.style.display = "block";
-      displayTextFailed.innerHTML = "Presensi Gagal! Tidak Ada Wajah yang Cocok. Silahkan Coba Lagi..";
+      displayTextFailed.innerHTML = "Presensi Gagal! Tidak Ada Wajah yang Cocok. Silakan Coba Lagi..";
       animasiFailed.style.display = "block";
     }
   }

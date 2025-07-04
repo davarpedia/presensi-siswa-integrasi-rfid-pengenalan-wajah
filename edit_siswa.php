@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $nis           = $_POST['nis'];
     $nama          = $_POST['nama'];
     $jenis_kelamin = $_POST['jenis_kelamin'];
-    $kelas         = $_POST['id_kelas'];
+    $kelas         = $_POST['kelas_id'];
     $alamat        = $_POST['alamat'];
     $token         = $_POST['token'];
     $id_chat       = $_POST['id_chat'];
@@ -57,11 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $resultNis    = $conn->query($sqlCheckNis);
 
     if ($resultRfid->num_rows > 0 && $resultNis->num_rows > 0) {
-        echo "<script>alert('Nomor RFID dan NIS sudah terdaftar! Silahkan gunakan yang berbeda!');</script>";
+        echo "<script>alert('Nomor RFID dan NIS sudah terdaftar! Silakan gunakan yang berbeda!');</script>";
     } elseif ($resultRfid->num_rows > 0) {
-        echo "<script>alert('Nomor RFID sudah terdaftar! Silahkan gunakan kartu RFID yang berbeda!');</script>";
+        echo "<script>alert('Nomor RFID sudah terdaftar! Silakan gunakan kartu RFID yang berbeda!');</script>";
     } elseif ($resultNis->num_rows > 0) {
-        echo "<script>alert('NIS sudah terdaftar! Silahkan gunakan NIS yang berbeda!');</script>";
+        echo "<script>alert('NIS sudah terdaftar! Silakan gunakan NIS yang berbeda!');</script>";
     } else {
         // Proses upload foto apabila ada file baru
         if (isset($_FILES['foto_siswa']) && $_FILES['foto_siswa']['error'] == 0) {
@@ -118,14 +118,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         // Update data siswa di database
-        $sql_update = "UPDATE `siswa` SET nis='$nis', nama='$nama', jenis_kelamin='$jenis_kelamin', id_kelas='$kelas', 
+        $sql_update = "UPDATE `siswa` SET nis='$nis', nama='$nama', jenis_kelamin='$jenis_kelamin', kelas_id='$kelas', 
                         alamat='$alamat', token='$token', id_chat='$id_chat', no_rfid='$no_rfid', status='$status',
                         dataset_wajah='$new_folder_name', foto_siswa='$new_foto_name' WHERE id='$id'";
         
         if ($conn->query($sql_update) === TRUE) {
             // Panggil endpoint re-embedding apabila ada perubahan pada NIS, nama, atau nomor RFID
             if ($old_nis !== $nis || $old_nama !== $nama || $old_no_rfid !== $no_rfid) {
-                $ch = curl_init("http://localhost:5000/reembed_faces");
+                $ch = curl_init("http://192.168.121.177:5000/reembed_faces");
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_POST, true);         
                 $response = curl_exec($ch);
@@ -214,11 +214,11 @@ include 'topbar.php';
             </div>
           </div>
           <div class="form-group">
-              <label for="id_kelas">Kelas</label>
-              <select id="id_kelas" name="id_kelas" class="custom-select" required>
+              <label for="kelas_id">Kelas</label>
+              <select id="kelas_id" name="kelas_id" class="custom-select" required>
                   <option value="">Pilih Kelas</option>
                   <?php foreach ($kelasOptions as $kelasRow): ?>
-                      <option value="<?php echo $kelasRow['id']; ?>" <?php echo ($row['id_kelas'] == $kelasRow['id']) ? 'selected' : ''; ?>>
+                      <option value="<?php echo $kelasRow['id']; ?>" <?php echo ($row['kelas_id'] == $kelasRow['id']) ? 'selected' : ''; ?>>
                           <?php echo $kelasRow['nama_kelas']; ?>
                       </option>
                   <?php endforeach; ?>

@@ -7,7 +7,7 @@ header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Ambil data form
-    $id_guru       = isset($_POST['id_guru']) ? trim($_POST['id_guru']) : '';
+    $guru_id       = isset($_POST['guru_id']) ? trim($_POST['guru_id']) : '';
     $nama          = isset($_POST['nama']) ? trim($_POST['nama']) : '';
     $email         = isset($_POST['email']) ? trim($_POST['email']) : '';
     $nip           = isset($_POST['nip']) ? trim($_POST['nip']) : '';
@@ -17,20 +17,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $status        = isset($_POST['status']) ? trim($_POST['status']) : '';
     
     // Validasi wajib
-    if (empty($id_guru) || empty($nama) || empty($email) || empty($nip) || empty($jenis_kelamin) || empty($telepon) || empty($alamat) || empty($status)) {
+    if (empty($guru_id) || empty($nama) || empty($email) || empty($nip) || empty($jenis_kelamin) || empty($telepon) || empty($alamat) || empty($status)) {
         echo json_encode(['success' => false, 'message' => 'Semua field wajib diisi!']);
         exit;
     }
     
-    // Ambil id_pengguna milik guru tersebut
-    $stmt = $conn->prepare("SELECT id_pengguna FROM guru WHERE id = ?");
+    // Ambil pengguna_id milik guru tersebut
+    $stmt = $conn->prepare("SELECT pengguna_id FROM guru WHERE id = ?");
     if (!$stmt) {
-        echo json_encode(['success' => false, 'message' => 'Prepare statement error (select id_pengguna): ' . $conn->error]);
+        echo json_encode(['success' => false, 'message' => 'Prepare statement error (select pengguna_id): ' . $conn->error]);
         exit;
     }
-    $stmt->bind_param("i", $id_guru);
+    $stmt->bind_param("i", $guru_id);
     $stmt->execute();
-    $stmt->bind_result($id_pengguna);
+    $stmt->bind_result($pengguna_id);
     if (!$stmt->fetch()) {
         echo json_encode(['success' => false, 'message' => 'Data guru tidak ditemukan!']);
         $stmt->close();
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         echo json_encode(['success' => false, 'message' => 'Prepare statement error (validasi email): ' . $conn->error]);
         exit;
     }
-    $stmt->bind_param("si", $email, $id_pengguna);
+    $stmt->bind_param("si", $email, $pengguna_id);
     $stmt->execute();
     $stmt->store_result();
     if ($stmt->num_rows > 0) {
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         echo json_encode(['success' => false, 'message' => 'Prepare statement error (validasi NIP): ' . $conn->error]);
         exit;
     }
-    $stmt->bind_param("si", $nip, $id_guru);
+    $stmt->bind_param("si", $nip, $guru_id);
     $stmt->execute();
     $stmt->store_result();
     if ($stmt->num_rows > 0) {
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         echo json_encode(['success' => false, 'message' => 'Prepare statement error (guru): ' . $conn->error]);
         exit;
     }
-    $stmt->bind_param("sssssi", $nip, $jenis_kelamin, $telepon, $alamat, $status, $id_guru);
+    $stmt->bind_param("sssssi", $nip, $jenis_kelamin, $telepon, $alamat, $status, $guru_id);
     if (!$stmt->execute()) {
         echo json_encode(['success' => false, 'message' => 'Gagal memperbarui data guru: ' . $stmt->error]);
         $stmt->close();
@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             echo json_encode(['success' => false, 'message' => 'Prepare statement error (update foto): ' . $conn->error]);
             exit;
         }
-        $stmt->bind_param("si", $foto_baru, $id_pengguna);
+        $stmt->bind_param("si", $foto_baru, $pengguna_id);
         if (!$stmt->execute()) {
             echo json_encode(['success' => false, 'message' => 'Gagal mengupdate foto: ' . $stmt->error]);
             $stmt->close();
@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         echo json_encode(['success' => false, 'message' => 'Prepare statement error (pengguna): ' . $conn->error]);
         exit;
     }
-    $stmt->bind_param("ssi", $nama, $email, $id_pengguna);
+    $stmt->bind_param("ssi", $nama, $email, $pengguna_id);
     if ($stmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'Data guru berhasil diperbarui.']);
     } else {

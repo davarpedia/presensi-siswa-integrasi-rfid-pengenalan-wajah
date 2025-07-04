@@ -33,7 +33,7 @@ if (empty($id)) {
     }
 }
 
-$flask_url = "http://localhost:5000"; 
+$flask_url = "http://192.168.121.177:5000"; // URL Flask server
 ?>
 
 <!-- Begin Page Content -->
@@ -100,12 +100,14 @@ $flask_url = "http://localhost:5000";
               const msgElement = document.getElementById(elementId);
               msgElement.innerText = message;
               msgElement.style.display = "block";
-              // Menentukan kelas alert: danger untuk error, success untuk berhasil
+              // Tentukan kelas alert berdasarkan jenis pesan
               if (type === 'error') {
                   msgElement.className = 'alert alert-danger text-center';
               } else if (type === 'success') {
                   msgElement.className = 'alert alert-success text-center';
-              }
+              } else if (type === 'info') {
+              msgElement.className = 'alert alert-secondary text-center';
+            }
           }
 
           // Mulai Capture ketika tombol "Mulai Capture" diklik
@@ -128,7 +130,7 @@ $flask_url = "http://localhost:5000";
                   if(result.error) {
                       updateAlertMessage('message', result.error, 'error');
                   } else {
-                      updateAlertMessage('message', result.message, 'success');
+                      updateAlertMessage('message', result.message, 'info');
                   }
                   checkCaptureStatus();
               })
@@ -173,7 +175,7 @@ $flask_url = "http://localhost:5000";
               };
 
               // Tampilkan pesan status saat update dimulai
-              updateAlertMessage('message', "Sedang melakukan embedding dataset wajah. Harap tunggu sebentar...", 'success');
+              updateAlertMessage('message', "Sedang melakukan embedding dataset wajah. Harap tunggu sebentar...", 'info');
           
               fetch("<?= $flask_url ?>/update_face_data", {
                   method: 'POST',

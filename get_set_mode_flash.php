@@ -1,7 +1,7 @@
 <?php
 // Konfigurasi alamat IP ESP32
-$esp32_ip = "192.168.10.26:80";
-$esp32cam_ip = "192.168.10.99:80";
+$esp32_ip = "192.168.121.26:80";
+$esp32cam_ip = "192.168.121.99:80";
 $esp32cam_get_flash_status_endpoint = "http://$esp32cam_ip/flash_status";
 $esp32_set_flash_endpoint = "http://$esp32_ip/set-flash";
 

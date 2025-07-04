@@ -5,9 +5,9 @@ hanyaAdmin();
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $id_guru = isset($_POST['id_guru']) ? trim($_POST['id_guru']) : '';
+    $guru_id = isset($_POST['guru_id']) ? trim($_POST['guru_id']) : '';
 
-    if (empty($id_guru)) {
+    if (empty($guru_id)) {
         echo json_encode(['success' => false, 'message' => 'ID guru tidak ditemukan']);
         exit;
     }
@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         echo json_encode(['success' => false, 'message' => 'Prepare statement error: ' . $conn->error]);
         exit;
     }
-    $stmt->bind_param("i", $id_guru);
+    $stmt->bind_param("i", $guru_id);
     if ($stmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'Data guru berhasil dihapus']);
     } else {

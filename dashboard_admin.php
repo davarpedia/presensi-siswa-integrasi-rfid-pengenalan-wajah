@@ -26,7 +26,7 @@ $tglHariIni = date("Y-m-d");
 // Mengambil jumlah presensi 'Hadir' hari ini secara global hanya untuk siswa yang 'Aktif'
 $sqlHadir = "SELECT COUNT(*) AS total
              FROM presensi p
-             JOIN siswa s ON p.no_rfid = s.no_rfid
+             JOIN siswa s ON p.siswa_id = s.id
              WHERE p.tanggal = '$tglHariIni' 
                AND p.status = 'Hadir'
                AND s.status = 'Aktif'";
@@ -36,8 +36,8 @@ $totalHadir = $rowHadir['total'];
 
 // Menghitung jumlah siswa yang belum hadir hari ini dengan status 'Aktif'
 $sqlBelumHadir = "SELECT COUNT(*) AS total FROM siswa 
-    WHERE status = 'Aktif' AND no_rfid NOT IN (
-        SELECT no_rfid FROM presensi WHERE tanggal = '$tglHariIni' AND status = 'Hadir'
+    WHERE status = 'Aktif' AND id NOT IN (
+        SELECT siswa_id FROM presensi WHERE tanggal = '$tglHariIni' AND status = 'Hadir'
     )";
 $resultBelum = mysqli_query($conn, $sqlBelumHadir);
 $rowBelum = mysqli_fetch_assoc($resultBelum);
@@ -50,8 +50,8 @@ $persentase = ($persentase == floor($persentase)) ? (int) $persentase : round($p
 // Mengambil data presensi terbaru (10 data terakhir) hanya untuk siswa dengan status 'Aktif'
 $sqlPresensi = "SELECT p.tanggal, s.nis, s.nama, k.nama_kelas, p.status 
                 FROM presensi p 
-                JOIN siswa s ON p.no_rfid = s.no_rfid 
-                JOIN kelas k ON s.id_kelas = k.id 
+                JOIN siswa s ON p.siswa_id = s.id 
+                JOIN kelas k ON s.kelas_id = k.id 
                 WHERE s.status = 'Aktif'
                 ORDER BY p.tanggal DESC, p.waktu_masuk DESC 
                 LIMIT 10";
@@ -67,7 +67,7 @@ while($kelas = mysqli_fetch_assoc($resultAllKelas)) {
     $namaKelas = $kelas['nama_kelas'];
     
     // Total siswa per kelas dengan status 'Aktif'
-    $sqlTotalSiswaKelas = "SELECT COUNT(*) AS total FROM siswa WHERE id_kelas = '$idKelas' AND status = 'Aktif'";
+    $sqlTotalSiswaKelas = "SELECT COUNT(*) AS total FROM siswa WHERE kelas_id = '$idKelas' AND status = 'Aktif'";
     $resultTotalSiswaKelas = mysqli_query($conn, $sqlTotalSiswaKelas);
     $rowTotalSiswaKelas = mysqli_fetch_assoc($resultTotalSiswaKelas);
     $totalSiswaKelas = $rowTotalSiswaKelas['total'];
@@ -75,8 +75,8 @@ while($kelas = mysqli_fetch_assoc($resultAllKelas)) {
     // Total hadir per kelas hari ini untuk siswa yang 'Aktif'
     $sqlHadirKelas = "SELECT COUNT(*) AS Hadir 
                       FROM presensi p 
-                      JOIN siswa s ON p.no_rfid = s.no_rfid 
-                      WHERE s.id_kelas = '$idKelas' 
+                      JOIN siswa s ON p.siswa_id = s.id 
+                      WHERE s.kelas_id = '$idKelas' 
                         AND s.status = 'Aktif'
                         AND p.tanggal = '$tglHariIni' 
                         AND p.status = 'Hadir'";

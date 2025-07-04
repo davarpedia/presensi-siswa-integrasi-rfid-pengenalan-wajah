@@ -10,21 +10,21 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$id_pengguna   = trim($_POST['id_pengguna']   ?? '');
+$pengguna_id   = trim($_POST['pengguna_id']   ?? '');
 $nip           = trim($_POST['nip']           ?? '');
 $jenis_kelamin = trim($_POST['jenis_kelamin'] ?? '');
 $telepon       = trim($_POST['telepon']       ?? '');
 $alamat        = trim($_POST['alamat']        ?? '');
 
 // Wajib isi semua
-if (empty($id_pengguna) || empty($nip) || empty($jenis_kelamin) || empty($telepon) || empty($alamat)) {
+if (empty($pengguna_id) || empty($nip) || empty($jenis_kelamin) || empty($telepon) || empty($alamat)) {
     echo json_encode(['success' => false, 'message' => 'Semua field wajib diisi!']);
     exit;
 }
 
-// Cek id_pengguna harus ada & level guru
+// Cek pengguna_id harus ada & level guru
 $stmt = $conn->prepare("SELECT 1 FROM pengguna WHERE id = ? AND level = 'Guru' LIMIT 1");
-$stmt->bind_param("i", $id_pengguna);
+$stmt->bind_param("i", $pengguna_id);
 $stmt->execute();
 $stmt->store_result();
 if ($stmt->num_rows === 0) {
@@ -33,9 +33,9 @@ if ($stmt->num_rows === 0) {
 }
 $stmt->close();
 
-// Cek id_pengguna udah dipake belum
-$stmt = $conn->prepare("SELECT 1 FROM guru WHERE id_pengguna = ? LIMIT 1");
-$stmt->bind_param("i", $id_pengguna);
+// Cek pengguna_id udah dipake belum
+$stmt = $conn->prepare("SELECT 1 FROM guru WHERE pengguna_id = ? LIMIT 1");
+$stmt->bind_param("i", $pengguna_id);
 $stmt->execute();
 $stmt->store_result();
 if ($stmt->num_rows > 0) {
@@ -57,10 +57,10 @@ $stmt->close();
 
 // Insert data guru
 $stmt = $conn->prepare("
-    INSERT INTO guru (id_pengguna, nip, jenis_kelamin, telepon, alamat)
+    INSERT INTO guru (pengguna_id, nip, jenis_kelamin, telepon, alamat)
     VALUES (?, ?, ?, ?, ?)
 ");
-$stmt->bind_param("issss", $id_pengguna, $nip, $jenis_kelamin, $telepon, $alamat);
+$stmt->bind_param("issss", $pengguna_id, $nip, $jenis_kelamin, $telepon, $alamat);
 
 if ($stmt->execute()) {
     echo json_encode(['success' => true, 'message' => 'Guru berhasil ditambahkan.']);

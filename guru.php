@@ -88,7 +88,7 @@ $statusFilter = isset($_GET['status']) ? $_GET['status'] : 'Aktif';
             <?php
             // Ambil data guru beserta pengguna dan kelas
             $sql = "SELECT 
-                    guru.id AS id_guru, 
+                    guru.id AS guru_id, 
                     guru.nip, 
                     guru.jenis_kelamin, 
                     guru.telepon, 
@@ -99,8 +99,8 @@ $statusFilter = isset($_GET['status']) ? $_GET['status'] : 'Aktif';
                     pengguna.foto_profil,
                     GROUP_CONCAT(kelas.nama_kelas ORDER BY CAST(kelas.nama_kelas AS UNSIGNED) ASC SEPARATOR ', ') AS kelas_diampu
                     FROM guru 
-                    JOIN pengguna ON guru.id_pengguna = pengguna.id
-                    LEFT JOIN kelas ON kelas.id_guru = guru.id";
+                    JOIN pengguna ON guru.pengguna_id = pengguna.id
+                    LEFT JOIN kelas ON kelas.guru_id = guru.id";
 
             // Tambahkan filter status jika ada
             if ($statusFilter !== '') {
@@ -158,7 +158,7 @@ $statusFilter = isset($_GET['status']) ? $_GET['status'] : 'Aktif';
                           <i class='bi bi-eye-fill'></i>
                           </button>
                           <button class='btn btn-warning btn-sm btn-edit' 
-                            data-idguru='{$row['id_guru']}' 
+                            data-idguru='{$row['guru_id']}' 
                             data-nip='{$row['nip']}'
                             data-jeniskelamin='{$row['jenis_kelamin']}'
                             data-telepon='{$row['telepon']}'
@@ -170,7 +170,7 @@ $statusFilter = isset($_GET['status']) ? $_GET['status'] : 'Aktif';
                             <i class='bi bi-pencil-fill'></i>
                           </button>
                           <button class='btn btn-danger btn-sm btn-delete' 
-                            data-idguru='{$row['id_guru']}'
+                            data-idguru='{$row['guru_id']}'
                             title='Hapus' data-toggle='modal' data-target='#deleteGuruModal'>
                             <i class='bi bi-trash-fill'></i>
                           </button>
@@ -210,7 +210,7 @@ $resultGuru = $conn->query($sqlGuru);
         <div id="alertTambah"></div>
         <div class="form-group">
           <label for="idPenggunaGuru">Nama Guru</label>
-          <select class="custom-select" id="idPenggunaGuru" name="id_pengguna" required>
+          <select class="custom-select" id="idPenggunaGuru" name="pengguna_id" required>
             <option value="">Pilih Pengguna</option>
             <?php while($user = $resultGuru->fetch_assoc()): ?>
               <option value="<?= $user['id'] ?>"><?= $user['nama'] ?></option>
@@ -261,7 +261,7 @@ $resultGuru = $conn->query($sqlGuru);
       </div>
       <div class="modal-body">
         <div id="alertEdit"></div>
-        <input type="hidden" id="idGuruEdit" name="id_guru">
+        <input type="hidden" id="idGuruEdit" name="guru_id">
         <div class="form-group">
           <label for="namaGuruEdit">Nama Guru</label>
           <input type="text" class="form-control" id="namaGuruEdit" name="nama" required>
@@ -494,7 +494,7 @@ $(document).ready(function() {
         $.ajax({
             url: "hapus_guru.php",
             type: "POST",
-            data: { id_guru: deleteId },
+            data: { guru_id: deleteId },
             dataType: "json",
             success: function(res){
                 const body = $('#deleteGuruModal .modal-body');

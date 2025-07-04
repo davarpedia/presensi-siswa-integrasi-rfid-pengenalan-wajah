@@ -161,7 +161,7 @@ $sql = "
     SELECT  
         s.nis, 
         s.nama, 
-        s.id_kelas,
+        s.kelas_id,
         k.nama_kelas,
         COUNT(DISTINCT CASE WHEN p.status='Hadir'  AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_hadir,
         COUNT(DISTINCT CASE WHEN p.status='Izin'   AND p.tanggal<=CURDATE() THEN p.tanggal END) AS total_izin,
@@ -191,15 +191,15 @@ $sql = "
         ELSE 0 END AS persentase_kehadiran
     FROM siswa s
     LEFT JOIN presensi p 
-      ON s.no_rfid = p.no_rfid
+      ON s.id = p.siswa_id
      AND (p.tanggal BETWEEN '$tanggalMulai' AND '$tanggalAkhir')
      AND p.tanggal NOT IN ($holidayIn)
     LEFT JOIN kelas k 
-      ON s.id_kelas = k.id
+      ON s.kelas_id = k.id
     WHERE 
         s.status = 'Aktif'
-        AND ('$kelasFilter' = '' OR s.id_kelas = '$kelasFilter')
-    GROUP BY s.nis
+        AND ('$kelasFilter' = '' OR s.kelas_id = '$kelasFilter')
+    GROUP BY s.nis, s.nama, s.kelas_id, k.nama_kelas
     ORDER BY s.nis ASC
 ";
 

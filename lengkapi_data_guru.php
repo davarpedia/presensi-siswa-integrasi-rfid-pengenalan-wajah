@@ -43,16 +43,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan'])) {
 
         if ($stmtCek->num_rows > 0) {
             // NIP sudah ada
-            $err = "NIP sudah terdaftar, Silahkan gunakan NIP lain!";
+            $err = "NIP sudah terdaftar, Silakan gunakan NIP lain!";
         } else {
             // NIP belum ada, lanjutkan simpan
             $stmtCek->close();
 
-            $id_pengguna = $_SESSION['session_id'];
-            $sqlInsert = "INSERT INTO guru (id_pengguna, nip, jenis_kelamin, telepon, alamat, status)
+            $pengguna_id = $_SESSION['session_id'];
+            $sqlInsert = "INSERT INTO guru (pengguna_id, nip, jenis_kelamin, telepon, alamat, status)
                           VALUES (?, ?, ?, ?, ?, 'aktif')";
             $stmtIns = $conn->prepare($sqlInsert);
-            $stmtIns->bind_param("issss", $id_pengguna, $nip, $jenis_kelamin, $telepon, $alamat);
+            $stmtIns->bind_param("issss", $pengguna_id, $nip, $jenis_kelamin, $telepon, $alamat);
 
             if ($stmtIns->execute()) {
                 // Berhasil insert, ambil id guru yang baru disimpan

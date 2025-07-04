@@ -27,15 +27,15 @@ include 'topbar.php';
   </div>
 
   <?php 
-    $id_siswa = $_GET['id'];
+    $siswa_id = $_GET['id'];
 
     // Query menggunakan LEFT JOIN untuk mengambil nama_kelas dari tabel kelas
     $sql = "SELECT siswa.*, kelas.nama_kelas 
             FROM siswa 
-            LEFT JOIN kelas ON siswa.id_kelas = kelas.id 
+            LEFT JOIN kelas ON siswa.kelas_id = kelas.id 
             WHERE siswa.id = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $id_siswa);
+    $stmt->bind_param("i", $siswa_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $siswa = $result->fetch_assoc();
@@ -150,7 +150,7 @@ function startStudentEmbedding() {
     alertContainer.innerHTML = "<div class='alert alert-secondary text-center' role='alert'>Sedang melakukan embedding dataset wajah. Harap tunggu sebentar...</div>";
     alertContainer.style.display = 'block';
 
-    fetch("http://localhost:5000/update_face_data", {
+    fetch("http://192.168.121.177:5000/update_face_data", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -201,7 +201,7 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', function()
     alertContainer.innerHTML = "<div class='alert alert-secondary text-center' role='alert'>Menghapus dataset lama. Mohon tunggu...</div>";
     alertContainer.style.display = 'block';
 
-    fetch("http://localhost:5000/delete_old_dataset", {
+    fetch("http://192.168.121.177:5000/delete_old_dataset", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"

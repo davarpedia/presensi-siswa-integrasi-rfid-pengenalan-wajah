@@ -29,7 +29,7 @@ if ($isAdmin) {
     $guruId = $_SESSION['guru_id'] ?? null;
     $sqlKelas = "SELECT k.* 
                  FROM kelas k 
-                 JOIN guru g ON k.id_guru = g.id 
+                 JOIN guru g ON k.guru_id = g.id 
                  WHERE g.id = ? AND g.status = 'Aktif'
                  ORDER BY k.nama_kelas ASC";
     $stmt = $conn->prepare($sqlKelas);
@@ -58,7 +58,7 @@ $sql = "SELECT p.id,
                s.nis, 
                s.nama,
                s.foto_siswa, 
-               s.id_kelas,
+               s.kelas_id,
                k.nama_kelas,
                p.tanggal, 
                p.waktu_masuk, 
@@ -67,8 +67,8 @@ $sql = "SELECT p.id,
                p.foto_keluar,
                p.status
         FROM presensi p 
-        JOIN siswa s ON p.no_rfid = s.no_rfid
-        LEFT JOIN kelas k ON s.id_kelas = k.id";
+        JOIN siswa s ON p.siswa_id = s.id
+        LEFT JOIN kelas k ON s.kelas_id = k.id";
 
 // Siapkan klausa WHERE
 $whereClauses = [];
@@ -81,7 +81,7 @@ if (!empty($kelasFilter)) {
     // Untuk Guru, data yang ditampilkan hanya dari kelas yang dia ampu
     if (!$isAdmin) {
         $guruId = $_SESSION['guru_id'] ?? null;
-        $whereClauses[] = "k.id IN (SELECT id FROM kelas WHERE id_guru = $guruId)";
+        $whereClauses[] = "k.id IN (SELECT id FROM kelas WHERE guru_id = $guruId)";
     }
 }
 

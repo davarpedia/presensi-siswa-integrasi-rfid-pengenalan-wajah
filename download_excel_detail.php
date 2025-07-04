@@ -191,9 +191,9 @@ if (!empty($tanggalMulai) && !empty($tanggalAkhir)) {
 // Ambil data siswa sesuai filter
 $sqlSiswa = "SELECT s.nis, s.nama, k.nama_kelas 
              FROM siswa s 
-             LEFT JOIN kelas k ON s.id_kelas = k.id
+             LEFT JOIN kelas k ON s.kelas_id = k.id
              WHERE s.status = 'Aktif'
-               AND ('$kelasFilter' = '' OR s.id_kelas = '$kelasFilter')
+               AND ('$kelasFilter' = '' OR s.kelas_id = '$kelasFilter')
              ORDER BY s.nis ASC";
 $resultSiswa = $conn->query($sqlSiswa);
 
@@ -329,7 +329,7 @@ if ($resultSiswa && $resultSiswa->num_rows > 0 && !empty($allDates)) {
                                ELSE p.status
                            END AS status_singkat
                     FROM presensi p
-                    JOIN siswa s2 ON s2.no_rfid = p.no_rfid
+                    JOIN siswa s2 ON s2.id = p.siswa_id
                     WHERE s2.nis = '$nis' 
                       AND p.tanggal = '$tgl'
                     LIMIT 1

@@ -5,13 +5,13 @@ hanyaAdmin();
 
 // Pastikan ada parameter id dan file
 if (isset($_GET['id']) && isset($_POST['file'])) {
-    $id_siswa = $_GET['id'];
+    $siswa_id = $_GET['id'];
     $file = $_POST['file'];
 
     // Cek apakah ID siswa valid
     $sql = "SELECT * FROM `siswa` WHERE `id` = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $id_siswa);
+    $stmt->bind_param("i", $siswa_id);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -30,7 +30,7 @@ if (isset($_GET['id']) && isset($_POST['file'])) {
             } else {
                 $_SESSION['alert'] = [
                     'title' => 'Penghapusan Gagal!',
-                    'text'  => 'Terjadi kesalahan saat menghapus foto. Silahkan coba lagi.',
+                    'text'  => 'Terjadi kesalahan saat menghapus foto. Silakan coba lagi.',
                     'icon'  => 'error'
                 ];
             }

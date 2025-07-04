@@ -13,7 +13,7 @@ $dataUser = mysqli_fetch_assoc($queryUser);
 // Jika level Guru, ambil data tambahan dari tabel guru
 $dataGuru = [];
 if ($dataUser['level'] === 'Guru') {
-    $queryGuru = mysqli_query($conn, "SELECT * FROM guru WHERE id_pengguna = '$id_user'");
+    $queryGuru = mysqli_query($conn, "SELECT * FROM guru WHERE pengguna_id = '$id_user'");
     $dataGuru = mysqli_fetch_assoc($queryGuru);
 }
 
@@ -44,7 +44,7 @@ if (isset($_GET['edit']) && isset($_POST['simpan'])) {
         $alamat        = mysqli_real_escape_string($conn, $_POST['alamat']);
 
         // Tambahkan pengecekan duplikat NIP (kecuali data dirinya sendiri)
-        $cekNip = mysqli_query($conn, "SELECT * FROM guru WHERE nip = '$nip' AND id_pengguna != '$id_user'");
+        $cekNip = mysqli_query($conn, "SELECT * FROM guru WHERE nip = '$nip' AND pengguna_id != '$id_user'");
         if (mysqli_num_rows($cekNip) > 0) {
             $peringatan[] = "NIP sudah terdaftar!";
         }
@@ -86,7 +86,7 @@ if (isset($_GET['edit']) && isset($_POST['simpan'])) {
                 // Jika pengguna adalah Guru, update juga tabel guru (tanpa mengubah status)
                 if ($dataUser['level'] === 'Guru') {
                     $updateGuruQuery = "UPDATE guru SET nip='$nip', jenis_kelamin='$jenis_kelamin', telepon='$telepon', alamat='$alamat'
-                                        WHERE id_pengguna='$id_user'";
+                                        WHERE pengguna_id='$id_user'";
                     mysqli_query($conn, $updateGuruQuery);
                 }
                 
@@ -110,7 +110,7 @@ if (isset($_GET['edit']) && isset($_POST['simpan'])) {
         if ($kesalahan) {
             $alert = [
                 'title' => 'Kesalahan',
-                'text'  => 'Terjadi kesalahan! Silahkan coba lagi.',
+                'text'  => 'Terjadi kesalahan! Silakan coba lagi.',
                 'icon'  => 'error'
             ];
         } else {
@@ -124,7 +124,7 @@ if (isset($_GET['edit']) && isset($_POST['simpan'])) {
 }
 
 // Include header, sidebar, topbar
-$pageTitle = "Profil Saya";
+$pageTitle = isset($_GET['edit']) ? "Edit Profil" : "Profil Saya";
 include 'header.php';
 include 'sidebar.php';
 include 'topbar.php';
@@ -215,8 +215,8 @@ include 'topbar.php';
                     <td>
                         <?php
                         $kelasDiampu = [];
-                        $id_guru = $dataGuru['id']; // pastikan field id benar
-                        $queryKelas = mysqli_query($conn, "SELECT * FROM kelas WHERE id_guru = '$id_guru'");
+                        $guru_id = $dataGuru['id']; // pastikan field id benar
+                        $queryKelas = mysqli_query($conn, "SELECT * FROM kelas WHERE guru_id = '$guru_id'");
                         while ($row = mysqli_fetch_assoc($queryKelas)) {
                             $kelasDiampu[] = $row['nama_kelas'];
                         }

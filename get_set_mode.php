@@ -1,6 +1,6 @@
 <?php
 // Konfigurasi alamat IP ESP32
-$esp32_ip = "192.168.10.26:80";
+$esp32_ip = "192.168.121.26:80";
 $esp32_get_mode_endpoint = "http://$esp32_ip/get-mode";
 $esp32_set_mode_endpoint = "http://$esp32_ip/set-mode";
 

@@ -203,7 +203,7 @@ if ($result->num_rows > 0) {
           modeSwitch.checked = previousState;
           modeLabel.innerText = "Gagal Terhubung!";
           document.querySelector('#modeSwitch + .slider').style.backgroundColor = "#ccc";
-          showAlert("Terjadi kesalahan saat mengubah mode alat. Silahkan coba lagi nanti!", "danger");
+          showAlert("Terjadi kesalahan saat mengubah mode alat. Silakan coba lagi nanti!", "danger");
         });
     }
 
@@ -258,7 +258,7 @@ if ($result->num_rows > 0) {
         .catch(error => {
           flashSwitch.checked = previousState;
           flashLabel.innerText = "Gagal Terhubung!";
-          showAlert("Terjadi kesalahan saat mengubah mode flash. Silahkan coba lagi nanti!", "danger");
+          showAlert("Terjadi kesalahan saat mengubah mode flash. Silakan coba lagi nanti!", "danger");
         });
     }
 
@@ -329,7 +329,7 @@ if ($result->num_rows > 0) {
         showAlert(data.message, data.status);
       })
       .catch(error => {
-        showAlert('Terjadi kesalahan saat mengupdate jam masuk. Silahkan coba lagi nanti!', 'danger');
+        showAlert('Terjadi kesalahan saat mengupdate jam masuk. Silakan coba lagi nanti!', 'danger');
       });
     });
 
@@ -353,7 +353,7 @@ if ($result->num_rows > 0) {
           const response = JSON.parse(xhr.responseText);
           showAlert(response.message, response.status);
         } else {
-          showAlert('Terjadi kesalahan saat mengatur waktu RTC. Silahkan coba lagi nanti!', 'danger');
+          showAlert('Terjadi kesalahan saat mengatur waktu RTC. Silakan coba lagi nanti!', 'danger');
         }
       };
       xhr.send(`waktu_rtc=${datetime}`);
@@ -375,7 +375,7 @@ if ($result->num_rows > 0) {
           const response = JSON.parse(xhr.responseText);
           showAlert(response.message, response.status);
         } else {
-          showAlert('Terjadi kesalahan saat mengatur waktu RTC. Silahkan coba lagi nanti!', 'danger');
+          showAlert('Terjadi kesalahan saat mengatur waktu RTC. Silakan coba lagi nanti!', 'danger');
         }
       };
       xhr.send(`waktu_rtc=${waktu_rtc}`);
@@ -394,7 +394,7 @@ if ($result->num_rows > 0) {
         showAlert(data.message, data.status);
       })
       .catch(error => {
-        showAlert('Terjadi kesalahan saat mengupdate hari operasional. Silahkan coba lagi nanti!', 'danger');
+        showAlert('Terjadi kesalahan saat mengupdate hari operasional. Silakan coba lagi nanti!', 'danger');
       });
     });
   </script>
